@@ -1,0 +1,301 @@
+---
+title: "00_Habitat"
+output: html_document
+date: "2025-01-21"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Load Data}
+
+library(sf)
+library(raster)
+library(tidyverse)
+
+allo_buffer <- st_read("~/Documents/GitHub/COMATSA_GitHub2/Data/buffers/update_buffer_allo_ExportFeatures.shp")
+albi_buffer <- st_read("~/Documents/GitHub/COMATSA_GitHub2/Data/buffers/update_buffer_albi_ExportFeatures.shp")
+hapa_buffer <- st_read("~/Documents/GitHub/COMATSA_GitHub2/Data/buffers/update_buffer_happa_ExportFeatures.shp")
+lepi_buffer <- st_read("~/Documents/GitHub/COMATSA_GitHub2/Data/buffers/update_buffer_lepi_ExportFeatures.shp")
+avahi_buffer <- st_read("~/Documents/GitHub/COMATSA_GitHub2/Data/buffers/update_buffer_avahi_ExportFeatures.shp")
+cheiro_buffer <- st_read("~/Documents/GitHub/COMATSA_GitHub2/Data/buffers/update_buffer_cheiro_ExportFeatures.shp")
+micro_buffer <- st_read("~/Documents/GitHub/COMATSA_GitHub2/Data/buffers/update_buffer_micro_ExportFeatures.shp")
+rubri_buffer <- st_read("~/Documents/GitHub/COMATSA_GitHub2/Data/buffers/update_buffer_rubri_ExportFeatures.shp")
+prop_buffer <- st_read("~/Documents/GitHub/COMATSA_GitHub2/Data/buffers/update_buffer_prop_ExportFeatures.shp")
+
+DEM <- raster("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/Data/covariate_tif/ASTGTMV003_S15E049_dem.tif")
+FH <- raster("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/Data/covariate_tif/Forest_height_2019_SAFR.tif")
+TRI <- raster("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/Data/covariate_tif/TRI_Nov2023.tif")
+FL <- raster("~/Documents/GitHub/COMATSA_GitHub2/Data/Comatsa_ForestLoss/FARForestLoss20102021.tif")
+FP <- raster("~/Documents/GitHub/COMATSA_GitHub2/Data/Comatsa_ForestLoss/FARForestCover_2010.tif")
+
+
+extent <- extent(49, 50 ,-15 ,-14)
+
+extent_polygon <- as(extent, "SpatialPolygons")
+proj4string(extent_polygon) <- CRS("+proj=longlat +datum=WGS84")
+extent_polygon_transformed <- spTransform(extent_polygon, crs(FP))
+transformed_extent <- extent(extent_polygon_transformed)
+FP <- crop(FP, transformed_extent)
+
+extent_polygon_transformed <- spTransform(extent_polygon, crs(FL))
+transformed_extent <- extent(extent_polygon_transformed)
+FL <- crop(FL, transformed_extent)
+
+values(FP$FARForestCover_2010)[is.na(values(FP$FARForestCover_2010))] <-0
+
+values(FL$FARForestLoss20102021)[is.na(values(FL$FARForestLoss20102021))] <-0
+
+plot(FP)
+
+# Function to extract mean values for a given raster
+extract_raster_values <- function(raster_layer, shapefile, value_name) {
+  extracted_values <- raster::extract(raster_layer, as(shapefile, "Spatial"), fun = mean, df = TRUE)
+  extracted_values <- cbind(shapefile %>% st_drop_geometry() %>% dplyr::select(Site, Transect), extracted_values)
+  colnames(extracted_values)[ncol(extracted_values)] <- value_name  # Rename the value column
+  return(extracted_values)
+}
+
+extract_raster_values_sum <- function(raster_layer, shapefile, value_name) {
+  extracted_values <- raster::extract(raster_layer, as(shapefile, "Spatial"), fun = sum, df = TRUE)
+  extracted_values <- cbind(shapefile %>% st_drop_geometry() %>% dplyr::select(Site, Transect), extracted_values)
+  colnames(extracted_values)[ncol(extracted_values)] <- value_name  # Rename the value column
+  return(extracted_values)
+}
+
+```
+
+```{r Extract Data: Allocebus}
+#Allocebus
+# Ensure CRS matches for all rasters
+if (!st_crs(allo_buffer) == crs(DEM)) {
+  allo_buffer <- st_transform(allo_buffer, crs(DEM))
+}
+
+# Extract mean values for each raster
+extracted_DEM <- extract_raster_values(DEM, allo_buffer, "DEM_mean")
+extracted_FH <- extract_raster_values(FH, allo_buffer, "FH_mean")
+extracted_TRI <- extract_raster_values(TRI, allo_buffer, "TRI_mean")
+extracted_FP <- extract_raster_values_sum(FP, allo_buffer, "F2010")
+extracted_FL <- extract_raster_values_sum(FL, allo_buffer, "FL")
+
+# Combine the extracted data frames
+combined_data_allo <- extracted_DEM %>%
+  left_join(extracted_FH, by = c("Site", "Transect")) %>%
+  left_join(extracted_TRI, by = c("Site", "Transect")) %>%
+  left_join(extracted_FP, by = c("Site", "Transect")) %>%
+  left_join(extracted_FL, by = c("Site", "Transect")) %>%
+  dplyr::select(Site, Transect, DEM_mean, FH_mean, TRI_mean, F2010, FL) %>% rename(Elevation= DEM_mean, CanopyHeight= FH_mean, Ruggedness = TRI_mean, ForestCover = F2010, ForestLoss=FL) %>% mutate(SiteTransect = paste0(Site, "_", Transect), ForestLossProp = ForestLoss/ForestCover)
+
+
+```
+
+```{r Extract Data: Avahi}
+# Ensure CRS matches for all rasters
+if (!st_crs(avahi_buffer) == crs(DEM)) {
+  avahi_buffer <- st_transform(avahi_buffer, crs(DEM))
+}
+
+# Extract mean values for each raster
+extracted_DEM <- extract_raster_values(DEM, avahi_buffer, "DEM_mean")
+extracted_FH <- extract_raster_values(FH, avahi_buffer, "FH_mean")
+extracted_TRI <- extract_raster_values(TRI, avahi_buffer, "TRI_mean")
+extracted_FP <- extract_raster_values_sum(FP, avahi_buffer, "F2010")
+extracted_FL <- extract_raster_values_sum(FL, avahi_buffer, "FL")
+
+# Combine the extracted data frames
+combined_data_avahi <- extracted_DEM %>%
+  left_join(extracted_FH, by = c("Site", "Transect")) %>%
+  left_join(extracted_TRI, by = c("Site", "Transect")) %>%
+  left_join(extracted_FP, by = c("Site", "Transect")) %>%
+  left_join(extracted_FL, by = c("Site", "Transect")) %>%
+  dplyr::select(Site, Transect, DEM_mean, FH_mean, TRI_mean, F2010, FL) %>% rename(Elevation= DEM_mean, CanopyHeight= FH_mean, Ruggedness = TRI_mean, ForestCover = F2010, ForestLoss=FL) %>% mutate(SiteTransect = paste0(Site, "_", Transect), ForestLossProp = ForestLoss/ForestCover)
+
+
+```
+
+```{r Extract Data: Albi}
+# Ensure CRS matches for all rasters
+if (!st_crs(albi_buffer) == crs(DEM)) {
+  albi_buffer <- st_transform(albi_buffer, crs(DEM))
+}
+
+# Extract mean values for each raster
+extracted_DEM <- extract_raster_values(DEM, albi_buffer, "DEM_mean")
+extracted_FH <- extract_raster_values(FH, albi_buffer, "FH_mean")
+extracted_TRI <- extract_raster_values(TRI, albi_buffer, "TRI_mean")
+extracted_FP <- extract_raster_values_sum(FP, albi_buffer, "F2010")
+extracted_FL <- extract_raster_values_sum(FL, albi_buffer, "FL")
+
+# Combine the extracted data frames
+combined_data_albi <- extracted_DEM %>%
+  left_join(extracted_FH, by = c("Site", "Transect")) %>%
+  left_join(extracted_TRI, by = c("Site", "Transect")) %>%
+  left_join(extracted_FP, by = c("Site", "Transect")) %>%
+  left_join(extracted_FL, by = c("Site", "Transect")) %>%
+  dplyr::select(Site, Transect, DEM_mean, FH_mean, TRI_mean, F2010, FL) %>% rename(Elevation= DEM_mean, CanopyHeight= FH_mean, Ruggedness = TRI_mean, ForestCover = F2010, ForestLoss=FL) %>% mutate(SiteTransect = paste0(Site, "_", Transect), ForestLossProp = ForestLoss/ForestCover)
+
+
+```
+
+```{r Extract Data: Cheiro}
+# Ensure CRS matches for all rasters
+if (!st_crs(cheiro_buffer) == crs(DEM)) {
+  cheiro_buffer <- st_transform(cheiro_buffer, crs(DEM))
+}
+
+# Extract mean values for each raster
+extracted_DEM <- extract_raster_values(DEM, cheiro_buffer, "DEM_mean")
+extracted_FH <- extract_raster_values(FH, cheiro_buffer, "FH_mean")
+extracted_TRI <- extract_raster_values(TRI, cheiro_buffer, "TRI_mean")
+extracted_FP <- extract_raster_values_sum(FP, cheiro_buffer, "F2010")
+extracted_FL <- extract_raster_values_sum(FL, cheiro_buffer, "FL")
+
+# Combine the extracted data frames
+combined_data_cheiro <- extracted_DEM %>%
+  left_join(extracted_FH, by = c("Site", "Transect")) %>%
+  left_join(extracted_TRI, by = c("Site", "Transect")) %>%
+  left_join(extracted_FP, by = c("Site", "Transect")) %>%
+  left_join(extracted_FL, by = c("Site", "Transect")) %>%
+  dplyr::select(Site, Transect, DEM_mean, FH_mean, TRI_mean, F2010, FL) %>% rename(Elevation= DEM_mean, CanopyHeight= FH_mean, Ruggedness = TRI_mean, ForestCover = F2010, ForestLoss=FL) %>% mutate(SiteTransect = paste0(Site, "_", Transect), ForestLossProp = ForestLoss/ForestCover)
+
+
+```
+
+```{r Extract Data: Hapa}
+# Ensure CRS matches for all rasters
+if (!st_crs(hapa_buffer) == crs(DEM)) {
+  hapa_buffer <- st_transform(hapa_buffer, crs(DEM))
+}
+
+# Extract mean values for each raster
+extracted_DEM <- extract_raster_values(DEM, hapa_buffer, "DEM_mean")
+extracted_FH <- extract_raster_values(FH, hapa_buffer, "FH_mean")
+extracted_TRI <- extract_raster_values(TRI, hapa_buffer, "TRI_mean")
+extracted_FP <- extract_raster_values_sum(FP, hapa_buffer, "F2010")
+extracted_FL <- extract_raster_values_sum(FL, hapa_buffer, "FL")
+
+# Combine the extracted data frames
+combined_data_hapa <- extracted_DEM %>%
+  left_join(extracted_FH, by = c("Site", "Transect")) %>%
+  left_join(extracted_TRI, by = c("Site", "Transect")) %>%
+  left_join(extracted_FP, by = c("Site", "Transect")) %>%
+  left_join(extracted_FL, by = c("Site", "Transect")) %>%
+  dplyr::select(Site, Transect, DEM_mean, FH_mean, TRI_mean, F2010, FL) %>% rename(Elevation= DEM_mean, CanopyHeight= FH_mean, Ruggedness = TRI_mean, ForestCover = F2010, ForestLoss=FL) %>% mutate(SiteTransect = paste0(Site, "_", Transect), ForestLossProp = ForestLoss/ForestCover)
+
+
+```
+
+```{r Extract Data: Lepilemur}
+# Ensure CRS matches for all rasters
+if (!st_crs(lepi_buffer) == crs(DEM)) {
+  lepi_buffer <- st_transform(lepi_buffer, crs(DEM))
+}
+
+# Extract mean values for each raster
+extracted_DEM <- extract_raster_values(DEM, lepi_buffer, "DEM_mean")
+extracted_FH <- extract_raster_values(FH, lepi_buffer, "FH_mean")
+extracted_TRI <- extract_raster_values(TRI, lepi_buffer, "TRI_mean")
+extracted_FP <- extract_raster_values_sum(FP, lepi_buffer, "F2010")
+extracted_FL <- extract_raster_values_sum(FL, lepi_buffer, "FL")
+
+# Combine the extracted data frames
+combined_data_lepi <- extracted_DEM %>%
+  left_join(extracted_FH, by = c("Site", "Transect")) %>%
+  left_join(extracted_TRI, by = c("Site", "Transect")) %>%
+  left_join(extracted_FP, by = c("Site", "Transect")) %>%
+  left_join(extracted_FL, by = c("Site", "Transect")) %>%
+  dplyr::select(Site, Transect, DEM_mean, FH_mean, TRI_mean, F2010, FL) %>% rename(Elevation= DEM_mean, CanopyHeight= FH_mean, Ruggedness = TRI_mean, ForestCover = F2010, ForestLoss=FL) %>% mutate(SiteTransect = paste0(Site, "_", Transect), ForestLossProp = ForestLoss/ForestCover)
+
+
+```
+
+```{r Extract Data: Prop}
+# Ensure CRS matches for all rasters
+if (!st_crs(prop_buffer) == crs(DEM)) {
+  prop_buffer <- st_transform(prop_buffer, crs(DEM))
+}
+
+# Extract mean values for each raster
+extracted_DEM <- extract_raster_values(DEM, prop_buffer, "DEM_mean")
+extracted_FH <- extract_raster_values(FH, prop_buffer, "FH_mean")
+extracted_TRI <- extract_raster_values(TRI, prop_buffer, "TRI_mean")
+extracted_FP <- extract_raster_values_sum(FP, prop_buffer, "F2010")
+extracted_FL <- extract_raster_values_sum(FL, prop_buffer, "FL")
+
+# Combine the extracted data frames
+combined_data_prop <- extracted_DEM %>%
+  left_join(extracted_FH, by = c("Site", "Transect")) %>%
+  left_join(extracted_TRI, by = c("Site", "Transect")) %>%
+  left_join(extracted_FP, by = c("Site", "Transect")) %>%
+  left_join(extracted_FL, by = c("Site", "Transect")) %>%
+  dplyr::select(Site, Transect, DEM_mean, FH_mean, TRI_mean, F2010, FL) %>% rename(Elevation= DEM_mean, CanopyHeight= FH_mean, Ruggedness = TRI_mean, ForestCover = F2010, ForestLoss=FL) %>% mutate(SiteTransect = paste0(Site, "_", Transect), ForestLossProp = ForestLoss/ForestCover)
+
+
+```
+
+```{r Extract Data: Rubri}
+# Ensure CRS matches for all rasters
+if (!st_crs(rubri_buffer) == crs(DEM)) {
+  rubri_buffer <- st_transform(rubri_buffer, crs(DEM))
+}
+
+# Extract mean values for each raster
+extracted_DEM <- extract_raster_values(DEM, rubri_buffer, "DEM_mean")
+extracted_FH <- extract_raster_values(FH, rubri_buffer, "FH_mean")
+extracted_TRI <- extract_raster_values(TRI, rubri_buffer, "TRI_mean")
+extracted_FP <- extract_raster_values_sum(FP, rubri_buffer, "F2010")
+extracted_FL <- extract_raster_values_sum(FL, rubri_buffer, "FL")
+
+# Combine the extracted data frames
+combined_data_rubri <- extracted_DEM %>%
+  left_join(extracted_FH, by = c("Site", "Transect")) %>%
+  left_join(extracted_TRI, by = c("Site", "Transect")) %>%
+  left_join(extracted_FP, by = c("Site", "Transect")) %>%
+  left_join(extracted_FL, by = c("Site", "Transect")) %>%
+  dplyr::select(Site, Transect, DEM_mean, FH_mean, TRI_mean, F2010, FL) %>% rename(Elevation= DEM_mean, CanopyHeight= FH_mean, Ruggedness = TRI_mean, ForestCover = F2010, ForestLoss=FL) %>% mutate(SiteTransect = paste0(Site, "_", Transect), ForestLossProp = ForestLoss/ForestCover)
+
+
+```
+
+```{r Extract Data: Micro}
+# Ensure CRS matches for all rasters
+if (!st_crs(micro_buffer) == crs(DEM)) {
+  micro_buffer <- st_transform(micro_buffer, crs(DEM))
+}
+
+# Extract mean values for each raster
+extracted_DEM <- extract_raster_values(DEM, micro_buffer, "DEM_mean")
+extracted_FH <- extract_raster_values(FH, micro_buffer, "FH_mean")
+extracted_TRI <- extract_raster_values(TRI, micro_buffer, "TRI_mean")
+extracted_FP <- extract_raster_values_sum(FP, micro_buffer, "F2010")
+extracted_FL <- extract_raster_values_sum(FL, micro_buffer, "FL")
+
+# Combine the extracted data frames
+combined_data_micro <- extracted_DEM %>%
+  left_join(extracted_FH, by = c("Site", "Transect")) %>%
+  left_join(extracted_TRI, by = c("Site", "Transect")) %>%
+  left_join(extracted_FP, by = c("Site", "Transect")) %>%
+  left_join(extracted_FL, by = c("Site", "Transect")) %>%
+  dplyr::select(Site, Transect, DEM_mean, FH_mean, TRI_mean, F2010, FL) %>% rename(Elevation= DEM_mean, CanopyHeight= FH_mean, Ruggedness = TRI_mean, ForestCover = F2010, ForestLoss=FL) %>% mutate(SiteTransect = paste0(Site, "_", Transect), ForestLossProp = ForestLoss/ForestCover)
+
+
+```
+
+```{r Combine}
+
+
+habitat <- rbind(combined_data_micro, combined_data_prop ,combined_data_hapa,
+                  combined_data_allo, combined_data_albi, combined_data_avahi,
+                  combined_data_cheiro, combined_data_lepi, combined_data_rubri) %>% dplyr::select(-Site, -Transect)
+
+habitat$Species <- c( rep("Microcebus_lehilahytsara", 29), rep("Propithecus_candidus", 29), rep("Hapalemur_occidentalis", 29),
+                        rep("Allocebus_trichotis", 29), rep( "Eulemur_albifrons", 29), rep("Avahi_laniger", 29),
+                        rep("Cheirogaleus_crossleyi", 29), rep("Lepilemur_saeli", 29), rep("Eulemur_rubriventer", 29)) 
+
+
+write.csv(habitat, "~/Documents/GitHub/COMATSA_GitHub2/Data/habitat_covs.csv")
+
+```
+

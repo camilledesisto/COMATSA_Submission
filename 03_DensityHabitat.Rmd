@@ -1,0 +1,585 @@
+---
+title: "03_DensityHabitat"
+output: html_document
+date: "2024-02-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse);library(MuMIn);library(rsq);library(lme4);library(lmerTest);library(ggpubr)
+
+albi_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/albi_dat.csv")
+allo_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/allocebus_dat.csv")
+avahi_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/avahi_dat.csv")
+cheiro_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/cheirogaleus_dat.csv")
+lepi_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/lepilemur_dat.csv")
+rubri_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/rubriventer_dat.csv")
+prop_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/prop_dat.csv")
+micro_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/microcebus_dat.csv")
+hapa_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/hapa_dat.csv")
+
+
+albi_density$Species <- "Eulemur_albifrons"
+allo_density$Species <- "Allocebus_trichotis"
+avahi_density$Species <- "Avahi_laniger"
+cheiro_density$Species <- "Cheirogaleus_crossleyi"
+lepi_density$Species <- "lepilemur_occidentalis"
+rubri_density$Species <- "Eulemur_rubriventer"
+prop_density$Species <- "Propithecus_candidus"
+lepi_density$Species <- "Lepilemur_saeli"
+micro_density$Species <- "Microcebus_lehilahytsara"
+hapa_density$Species <- "Hapalemur_occidentalis"
+
+lemur_densities <- rbind(albi_density, allo_density, avahi_density, cheiro_density, lepi_density, rubri_density, prop_density, micro_density, hapa_density) %>% rename(SiteTransect = Site_Transect)
+
+habitat <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/habitat_covs.csv")
+
+densities_habitat <- left_join(lemur_densities, habitat, by=c("SiteTransect", "Species"))
+
+```
+
+```{r Lemur Density Heatmap}
+
+lemur_densities2 <- lemur_densities
+
+lemur_densities2$Species[lemur_densities2$Species=="Allocebus_trichotis"] <- "A. trichotis"
+lemur_densities2$Species[lemur_densities2$Species=="Microcebus_lehilahytsara"] <- "M. lehilahytsara"
+lemur_densities2$Species[lemur_densities2$Species=="Avahi_laniger"] <- "A. laniger"
+lemur_densities2$Species[lemur_densities2$Species=="Propithecus_candidus"] <- "P. candidus"
+lemur_densities2$Species[lemur_densities2$Species=="Cheirogaleus_crossleyi"] <- "C. crossleyi"
+lemur_densities2$Species[lemur_densities2$Species=="Lepilemur_saeli"] <- "L. seali"
+lemur_densities2$Species[lemur_densities2$Species=="Eulemur_rubriventer"] <- "E. rubriventer"
+lemur_densities2$Species[lemur_densities2$Species=="Eulemur_albifrons"] <- "E. albifrons"
+lemur_densities2$Species[lemur_densities2$Species=="Hapalemur_occidentalis"] <- "H. occidentalis"
+
+lemur_densities2$Site[lemur_densities2$Site=="Ambavala"] <- "A"
+lemur_densities2$Site[lemur_densities2$Site=="Ambodihasina"] <- "B"
+lemur_densities2$Site[lemur_densities2$Site=="Ambodimandresy"] <- "C"
+lemur_densities2$Site[lemur_densities2$Site=="Ambodivoara"] <- "D"
+lemur_densities2$Site[lemur_densities2$Site=="AmbodivohitraKobahina"] <- "E"
+lemur_densities2$Site[lemur_densities2$Site=="Androfiabe"] <- "F"
+lemur_densities2$Site[lemur_densities2$Site=="Antanambe"] <- "G"
+lemur_densities2$Site[lemur_densities2$Site=="Betaolana"] <- "H"
+lemur_densities2$Site[lemur_densities2$Site=="Befamatra"] <- "I"
+
+lemur_densities2$SiteTransect <- paste0(lemur_densities2$Site, lemur_densities2$Transect)
+
+lemur_densities2$Species <- factor(lemur_densities2$Species, levels = c("A. trichotis", "C. crossleyi", "M. lehilahytsara", "L. seali", "A. laniger", "P. candidus", "E. albifrons", "E. rubriventer", "H. occidentalis"))
+
+density_heatmap <- ggplot(data= lemur_densities2, aes(x=Species, y=SiteTransect, fill= sqrt(Density_km2)))+
+  geom_tile(color = "white")+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_fill_viridis_c(direction = -1,option="magma")+
+  ylab("Transect")+
+  guides(fill=guide_legend(title=  expression(atop("Pop. Density", "(Ind./" * km^2 * ")"))))+
+  geom_vline(xintercept = 5.5, linetype = "dashed", size = 1.5)
+
+lemur_densities3 <- lemur_densities2 %>% filter(Species =="E. albifrons"|Species =="E. rubriventer"|Species =="H. occidentalis"|Species =="P. candidus") %>% pivot_wider(names_from = Species, values_from = Density_km2)
+
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="C. crossleyi"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="M. lehilahytsara"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="A. laniger"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="A. trichotis"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="L. seali"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="E. albifrons"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="E. rubriventer"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="P. candidus"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="H. occidentalis"]))
+
+```
+
+```{r Lemur species dataframes}
+densities_habitat_allo <- densities_habitat[densities_habitat$Species=="Allocebus_trichotis",]
+densities_habitat_micro <- densities_habitat[densities_habitat$Species=="Microcebus_lehilahytsara",]
+densities_habitat_avahi <- densities_habitat[densities_habitat$Species=="Avahi_laniger",]
+densities_habitat_prop <- densities_habitat[densities_habitat$Species=="Propithecus_candidus",]
+densities_habitat_cheiro <- densities_habitat[densities_habitat$Species=="Cheirogaleus_crossleyi",]
+densities_habitat_lepi <- densities_habitat[densities_habitat$Species=="Lepilemur_saeli",]
+densities_habitat_rubri <- densities_habitat[densities_habitat$Species=="Eulemur_rubriventer",]
+densities_habitat_albi <- densities_habitat[densities_habitat$Species=="Eulemur_albifrons",]
+densities_habitat_hapa <- densities_habitat[densities_habitat$Species=="Hapalemur_occidentalis",]
+
+ggplot(data=densities_habitat_allo, aes(x=Density_km2))+geom_histogram()
+shapiro.test(densities_habitat_allo$Density_km2)
+shapiro.test(log(densities_habitat_allo$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_allo$Density_km2))
+
+shapiro.test(densities_habitat_micro$Density_km2)
+shapiro.test(log(densities_habitat_micro$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_micro$Density_km2))
+
+shapiro.test(densities_habitat_avahi$Density_km2)
+shapiro.test(log(densities_habitat_avahi$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_avahi$Density_km2))
+
+shapiro.test(densities_habitat_prop$Density_km2)
+shapiro.test(log(densities_habitat_prop$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_prop$Density_km2))
+
+shapiro.test(densities_habitat_cheiro$Density_km2)
+shapiro.test(log(densities_habitat_cheiro$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_cheiro$Density_km2))
+
+shapiro.test(densities_habitat_lepi$Density_km2)
+shapiro.test(log(densities_habitat_lepi$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_lepi$Density_km2))
+
+shapiro.test(densities_habitat_rubri$Density_km2)
+shapiro.test(log(densities_habitat_rubri$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_rubri$Density_km2))
+
+shapiro.test(densities_habitat_albi$Density_km2)
+shapiro.test(log(densities_habitat_albi$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_albi$Density_km2))
+
+shapiro.test(densities_habitat_lepi$Density_km2)
+shapiro.test(log(densities_habitat_lepi$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_lepi$Density_km2))
+
+```
+
+```{r Habitat Model: Allocebus}
+
+densities_habitat_allo <- densities_habitat[densities_habitat$Species=="Allocebus_trichotis",]
+
+mean(densities_habitat_allo$Density_km2)
+
+allo_full <- lmer(data = densities_habitat_allo, sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness+ForestLossProp + (1|Site),na.action = "na.fail")
+allo_dredge <- dredge(allo_full)
+allo_model_avg <- model.avg(allo_dredge, fit = TRUE)
+summary_allo_model_avg <- summary(allo_model_avg)
+importance_allo_model_avg <- sw(allo_model_avg)
+allo_model_avg$coefficients
+
+allo_coefficients <- as.data.frame(allo_model_avg$coefficients)[1,]
+allo_coefficients <- allo_coefficients[, sort(colnames(allo_coefficients))]
+
+r.squaredGLMM(allo_full)
+
+avg_coefs <- coef(allo_model_avg, full = TRUE)
+cov_mat <- vcov(allo_model_avg, full = TRUE)
+
+cov_mat_pd <- as.matrix(nearPD(cov_mat)$mat)
+
+set.seed(123)
+n_sim <- 1000
+simulated_coefs <- MASS::mvrnorm(n = n_sim, mu = avg_coefs, Sigma = cov_mat_pd)
+
+simulated_coefs_df_allo <- as.data.frame(simulated_coefs) 
+
+mean(simulated_coefs_df_allo$Elevation)
+
+
+```
+
+```{r Habitat Model: Microcebus}
+
+densities_habitat_micro <- densities_habitat[densities_habitat$Species=="Microcebus_lehilahytsara",]
+
+micro_full <- lmer(data = densities_habitat_micro , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness+ForestLossProp + (1|Site),na.action = "na.fail")
+micro_dredge <- dredge(micro_full)
+micro_model_avg <- model.avg(micro_dredge, fit = TRUE)
+summary_micro_model_avg <- summary(micro_model_avg)
+importance_micro_model_avg <- sw(micro_model_avg)
+
+micro_coefficients <- as.data.frame(micro_model_avg$coefficients)[1,]
+micro_coefficients <- micro_coefficients[, sort(colnames(micro_coefficients))]
+
+r.squaredGLMM(micro_full)
+
+avg_coefs <- coef(micro_model_avg, full = TRUE)
+cov_mat <- vcov(micro_model_avg, full = TRUE)
+
+cov_mat_pd <- as.matrix(nearPD(cov_mat)$mat)
+
+set.seed(123)
+n_sim <- 1000
+simulated_coefs <- MASS::mvrnorm(n = n_sim, mu = avg_coefs, Sigma = cov_mat_pd)
+
+simulated_coefs_df_micro <- as.data.frame(simulated_coefs)
+
+
+```
+
+```{r Habitat Model: Cheirogaleus}
+
+densities_habitat_cheiro <- densities_habitat[densities_habitat$Species=="Cheirogaleus_crossleyi",]
+densities_habitat_cheiro <- densities_habitat_cheiro %>% drop_na()
+
+cheiro_full <- lmer(data = densities_habitat_cheiro , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site), na.action = "na.fail")
+cheiro_dredge <- dredge(cheiro_full)
+cheiro_model_avg <- model.avg(cheiro_dredge, fit=TRUE)
+summary_cheiro_model_avg <- summary(cheiro_model_avg)
+importance_cheiro_model_avg <- sw(cheiro_model_avg)
+
+r.squaredGLMM(cheiro_full)
+
+cheiro_coefficients <- as.data.frame(cheiro_model_avg$coefficients)[1,]
+cheiro_coefficients <- cheiro_coefficients[, sort(colnames(cheiro_coefficients))]
+
+avg_coefs <- coef(cheiro_model_avg, full = TRUE)
+cov_mat <- vcov(cheiro_model_avg, full = TRUE)
+
+cov_mat_pd <- as.matrix(nearPD(cov_mat)$mat)
+
+set.seed(123)
+n_sim <- 1000
+simulated_coefs <- MASS::mvrnorm(n = n_sim, mu = avg_coefs, Sigma = cov_mat_pd)
+
+simulated_coefs_df_cheiro <- as.data.frame(simulated_coefs)
+
+```
+
+```{r Habitat Model: Lepilemur}
+
+densities_habitat_lepi <- densities_habitat[densities_habitat$Species=="Lepilemur_saeli",]
+
+lepi_full <- lmer(data = densities_habitat_lepi , sqrt(Density_km2) ~ Elevation + CanopyHeight +Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+lepi_dredge <- dredge(lepi_full)
+lepi_model_avg <- model.avg(lepi_dredge, fit = TRUE)
+summary_lepi_model_avg <- summary(lepi_model_avg)
+importance_lepi_model_avg <- sw(lepi_model_avg)
+
+r.squaredGLMM(lepi_full)
+
+lepi_coefficients <- as.data.frame(lepi_model_avg$coefficients)[1,]
+lepi_coefficients <- lepi_coefficients[, sort(colnames(lepi_coefficients))]
+
+
+avg_coefs <- coef(lepi_model_avg, full = TRUE)
+cov_mat <- vcov(lepi_model_avg, full = TRUE)
+
+cov_mat_pd <- as.matrix(nearPD(cov_mat)$mat)
+
+set.seed(123)
+n_sim <- 1000
+simulated_coefs <- MASS::mvrnorm(n = n_sim, mu = avg_coefs, Sigma = cov_mat_pd)
+
+simulated_coefs_df_lepi <- as.data.frame(simulated_coefs)
+
+```
+
+```{r Habitat Model: Avahi}
+
+densities_habitat_avahi <- densities_habitat[densities_habitat$Species=="Avahi_laniger",]
+
+avahi_full <- lmer(data = densities_habitat_avahi , sqrt(Density_km2) ~ Elevation + CanopyHeight+ Ruggedness+ForestLossProp+ (1|Site),na.action = "na.fail")
+avahi_dredge <- dredge(avahi_full)
+avahi_model_avg <- model.avg(avahi_dredge, fit = TRUE)
+summary_avahi_model_avg <- summary(avahi_model_avg)
+importance_avahi_model_avg <- sw(avahi_model_avg)
+
+r.squaredGLMM(avahi_full)
+
+avahi_coefficients <- as.data.frame(avahi_model_avg$coefficients)[1,]
+avahi_coefficients <- avahi_coefficients[, sort(colnames(avahi_coefficients))]
+
+avg_coefs <- coef(avahi_model_avg, full = TRUE)
+cov_mat <- vcov(avahi_model_avg, full = TRUE)
+
+cov_mat_pd <- as.matrix(nearPD(cov_mat)$mat)
+
+set.seed(123)
+n_sim <- 1000
+simulated_coefs <- MASS::mvrnorm(n = n_sim, mu = avg_coefs, Sigma = cov_mat_pd)
+
+simulated_coefs_df_avahi <- as.data.frame(simulated_coefs)
+
+```
+
+```{r Habitat Model: Propithecus}
+
+# Subset data
+densities_habitat_prop <- densities_habitat[densities_habitat$Species == "Propithecus_candidus",]
+
+
+prop_full <- lmer(data = densities_habitat_prop , sqrt(Density_km2) ~ Elevation + CanopyHeight+ Ruggedness+ForestLossProp+ (1|Site),na.action = "na.fail")
+prop_dredge <- dredge(prop_full)
+prop_model_avg <- model.avg(prop_dredge, fit = TRUE)
+summary_prop_model_avg <- summary(prop_model_avg)
+importance_prop_model_avg <- sw(prop_model_avg)
+
+r.squaredGLMM(prop_full)
+
+prop_coefficients <- as.data.frame(prop_model_avg$coefficients)[1,]
+prop_coefficients <- prop_coefficients[, sort(colnames(prop_coefficients))]
+
+avg_coefs <- coef(prop_model_avg, full = TRUE)
+cov_mat <- vcov(prop_model_avg, full = TRUE)
+
+cov_mat_pd <- as.matrix(nearPD(cov_mat)$mat)
+
+set.seed(123)
+n_sim <- 1000
+simulated_coefs <- MASS::mvrnorm(n = n_sim, mu = avg_coefs, Sigma = cov_mat_pd)
+
+simulated_coefs_df_prop <- as.data.frame(simulated_coefs)
+
+```
+
+```{r Habitat Model: ALbifrons}
+
+densities_habitat_albi <- densities_habitat[densities_habitat$Species=="Eulemur_albifrons",]
+
+albi_full <- lmer(data = densities_habitat_albi , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+albi_dredge <- dredge(albi_full, extra = "R^2")
+albi_model_avg <- model.avg(albi_dredge, fit = TRUE)
+summary_albi_model_avg <- summary(albi_model_avg)
+summary_albi_model_avg
+importance_albi_model_avg <- sw(albi_model_avg)
+
+r.squaredGLMM(albi_full)
+
+albi_coefficients <- as.data.frame(albi_model_avg$coefficients)[1,]
+albi_coefficients <- albi_coefficients[, sort(colnames(albi_coefficients))]
+
+
+avg_coefs <- coef(albi_model_avg, full = TRUE)
+cov_mat <- vcov(albi_model_avg, full = TRUE)
+
+cov_mat_pd <- as.matrix(nearPD(cov_mat)$mat)
+
+set.seed(123)
+n_sim <- 1000
+simulated_coefs <- MASS::mvrnorm(n = n_sim, mu = avg_coefs, Sigma = cov_mat_pd)
+
+simulated_coefs_df_albi <- as.data.frame(simulated_coefs)
+
+```
+
+```{r Habitat Model: Rubriventer}
+
+densities_habitat_rubri <- densities_habitat[densities_habitat$Species=="Eulemur_rubriventer",]
+
+
+rubri_full <- lmer(data = densities_habitat_rubri , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+rubri_dredge <- dredge(rubri_full)
+rubri_model_avg <- model.avg(rubri_dredge, fit = TRUE)
+summary_rubri_model_avg <- summary(rubri_model_avg)
+importance_rubri_model_avg <- sw(rubri_model_avg)
+
+r.squaredGLMM(rubri_full)
+
+rubri_coefficients <- as.data.frame(rubri_model_avg$coefficients)[1,]
+rubri_coefficients <- rubri_coefficients[, sort(colnames(rubri_coefficients))]
+
+avg_coefs <- coef(rubri_model_avg, full = TRUE)
+cov_mat <- vcov(rubri_model_avg, full = TRUE)
+
+cov_mat_pd <- as.matrix(nearPD(cov_mat)$mat)
+
+set.seed(123)
+n_sim <- 1000
+simulated_coefs <- MASS::mvrnorm(n = n_sim, mu = avg_coefs, Sigma = cov_mat_pd)
+
+simulated_coefs_df_rubri <- as.data.frame(simulated_coefs)
+
+```
+
+```{r Habitat Model: Hapalemur}
+
+densities_habitat_hapa <- densities_habitat[densities_habitat$Species=="Hapalemur_occidentalis",]
+
+hapa_full <- lmer(data = densities_habitat_hapa , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness + ForestLossProp+(1|Site), na.action = "na.fail")
+hapa_dredge <- dredge(hapa_full)
+hapa_model_avg <- model.avg(hapa_dredge, fit = TRUE)
+summary_hapa_model_avg <- summary(hapa_model_avg)
+importance_hapa_model_avg <- sw(hapa_model_avg)
+
+r.squaredGLMM(hapa_full)
+
+hapa_coefficients <- as.data.frame(hapa_model_avg$coefficients)[1,]
+hapa_coefficients <- hapa_coefficients[, sort(colnames(hapa_coefficients))]
+
+avg_coefs <- coef(hapa_model_avg, full = TRUE)
+cov_mat <- vcov(hapa_model_avg, full = TRUE)
+
+cov_mat_pd <- as.matrix(nearPD(cov_mat)$mat)
+
+set.seed(123)
+n_sim <- 1000
+simulated_coefs <- MASS::mvrnorm(n = n_sim, mu = avg_coefs, Sigma = cov_mat_pd)
+
+simulated_coefs_df_hapa <- as.data.frame(simulated_coefs)
+
+```
+
+```{r Dataframe Compilation}
+
+hapa_coef <- as.data.frame(summary_hapa_model_avg$coefmat.full)
+hapa_coef$Variable <- rownames(hapa_coef)
+hapa_coef$Species <- "H. occidentalis"
+
+prop_coef <- as.data.frame(summary_prop_model_avg$coefmat.full)
+prop_coef$Variable <- rownames(prop_coef)
+prop_coef$Species <- "P. candidus"
+
+albi_coef <- as.data.frame(summary_albi_model_avg$coefmat.full)
+albi_coef$Variable <- rownames(albi_coef)
+albi_coef$Species <- "E. albifrons"
+
+rubri_coef <- as.data.frame(summary_rubri_model_avg$coefmat.full)
+rubri_coef$Variable <- rownames(rubri_coef)
+rubri_coef$Species <- "E. rubriventer"
+
+avahi_coef <- as.data.frame(summary_avahi_model_avg$coefmat.full)
+avahi_coef$Variable <- rownames(avahi_coef)
+avahi_coef$Species <- "A. laniger"
+
+lepi_coef <- as.data.frame(summary_lepi_model_avg$coefmat.full)
+lepi_coef$Variable <- rownames(lepi_coef)
+lepi_coef$Species <- "L. seali"
+
+micro_coef <- as.data.frame(summary_micro_model_avg$coefmat.full)
+micro_coef$Variable <- rownames(micro_coef)
+micro_coef$Species <- "M. lehilahytsara"
+
+allo_coef <- as.data.frame(summary_allo_model_avg$coefmat.full)
+allo_coef$Variable <- rownames(allo_coef)
+allo_coef$Species <- "A. trichotis"
+
+cheiro_coef <- as.data.frame(summary_cheiro_model_avg$coefmat.full)
+cheiro_coef$Variable <- rownames(cheiro_coef)
+cheiro_coef$Species <- "C. crossleyi"
+
+coef_total <- rbind(hapa_coef, prop_coef, albi_coef, rubri_coef, avahi_coef, lepi_coef, micro_coef, allo_coef, cheiro_coef)
+
+coef_total2 <- coef_total
+coef_total2$Estimate <- round(coef_total2$Estimate, 3)
+coef_total2$`Std. Error` <- round(coef_total2$`Std. Error`, 3)
+coef_total2$`Pr(>|z|)` <- round(coef_total2$`Pr(>|z|)`, 3)
+
+write.csv(coef_total2 ,"coef_total.csv")
+
+coef_total$Lower <- coef_total$Estimate - 1.96 * coef_total$`Std. Error`
+coef_total$Upper <- coef_total$Estimate + 1.96 * coef_total$`Std. Error`
+coef_total$Lower90 <- coef_total$Estimate - 1.644854 * coef_total$`Std. Error`
+coef_total$Upper90 <- coef_total$Estimate + 1.644854 * coef_total$`Std. Error`
+
+coef_total$Variable[coef_total$Variable=="scale(ForestLossProp)"] <- "Forest Loss Prop."
+coef_total$Variable[coef_total$Variable=="scale(Elevation)"] <- "Elevation"
+coef_total$Variable[coef_total$Variable=="scale(Ruggedness)"] <- "Ruggedness"
+coef_total$Variable[coef_total$Variable=="scale(CanopyHeight)"] <- "Canopy Height"
+
+
+albi_plot <- ggplot(data=coef_total[coef_total$Species=="E. albifrons",], aes(x=Variable, y= Estimate, ymin=Lower, ymax=Upper))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_pointrange(position = position_dodge(0.5), size=0.7, lwd=0.7)+
+  geom_linerange(aes(x= Variable, y= Estimate, ymin=Lower90, ymax=Upper90), position = position_dodge(0.5), linewidth=1.5)+
+  theme_classic()+
+  ylab("Estimate")+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+rubri_plot <- ggplot(data=coef_total[coef_total$Species=="E. rubriventer",], aes(x=Variable, y= Estimate, ymin=Lower, ymax=Upper))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_pointrange(position = position_dodge(0.5), size=0.7, lwd=0.7)+
+  geom_linerange(aes(x= Variable, y= Estimate, ymin=Lower90, ymax=Upper90), position = position_dodge(0.5), linewidth=1.5)+
+  theme_classic()+
+  ylab("Estimate")+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+hapa_plot <- ggplot(data=coef_total[coef_total$Species=="H. occidentalis",], aes(x=Variable, y= Estimate, ymin=Lower, ymax=Upper))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_pointrange(position = position_dodge(0.5), size=0.7, lwd=0.7)+
+  geom_linerange(aes(x= Variable, y= Estimate, ymin=Lower90, ymax=Upper90), position = position_dodge(0.5), linewidth=1.5)+
+  theme_classic()+
+  ylab("Estimate")+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+prop_plot <- ggplot(data=coef_total[coef_total$Species=="P. candidus",], aes(x=Variable, y= Estimate, ymin=Lower, ymax=Upper))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_pointrange(position = position_dodge(0.5), size=0.7, lwd=0.7)+
+  geom_linerange(aes(x= Variable, y= Estimate, ymin=Lower90, ymax=Upper90), position = position_dodge(0.5), linewidth=1.5)+
+  theme_classic()+
+  ylab("Estimate")+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+micro_plot <- ggplot(data=coef_total[coef_total$Species=="M. lehilahytsara",], aes(x=Variable, y= Estimate, ymin=Lower, ymax=Upper))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_pointrange(position = position_dodge(0.5), size=0.7, lwd=0.7)+
+  geom_linerange(aes(x= Variable, y= Estimate, ymin=Lower90, ymax=Upper90), position = position_dodge(0.5), linewidth=1.5)+
+  theme_classic()+
+  ylab("Estimate")+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+allo_plot <- ggplot(data=coef_total[coef_total$Species=="A. trichotis",], aes(x=Variable, y= Estimate, ymin=Lower, ymax=Upper))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_pointrange(position = position_dodge(0.5), size=0.7, lwd=0.7)+
+  geom_linerange(aes(x= Variable, y= Estimate, ymin=Lower90, ymax=Upper90), position = position_dodge(0.5), linewidth=1.5)+
+  theme_classic()+
+  ylab("Estimate")+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+avahi_plot <- ggplot(data=coef_total[coef_total$Species=="A. laniger",], aes(x=Variable, y= Estimate, ymin=Lower, ymax=Upper))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_pointrange(position = position_dodge(0.5), size=0.7, lwd=0.7)+
+  geom_linerange(aes(x= Variable, y= Estimate, ymin=Lower90, ymax=Upper90), position = position_dodge(0.5), linewidth=1.5)+
+  theme_classic()+
+  ylab("Estimate")+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+lepi_plot <- ggplot(data=coef_total[coef_total$Species=="L. seali",], aes(x=Variable, y= Estimate, ymin=Lower, ymax=Upper))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_pointrange(position = position_dodge(0.5), size=0.7, lwd=0.7)+
+  geom_linerange(aes(x= Variable, y= Estimate, ymin=Lower90, ymax=Upper90), position = position_dodge(0.5), linewidth=1.5)+
+  theme_classic()+
+  ylab("Estimate")+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+cheiro_plot <- ggplot(data=coef_total[coef_total$Species=="C. crossleyi",], aes(x=Variable, y= Estimate, ymin=Lower, ymax=Upper))+
+  geom_hline(yintercept = 0, linetype="dashed")+
+  geom_pointrange(position = position_dodge(0.5), size=0.7, lwd=0.7)+
+  geom_linerange(aes(x= Variable, y= Estimate, ymin=Lower90, ymax=Upper90), position = position_dodge(0.5), linewidth=1.5)+
+  theme_classic()+
+  ylab("Estimate")+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+
+coefficient_plot <- ggarrange(allo_plot, avahi_plot, cheiro_plot, albi_plot, rubri_plot, hapa_plot, lepi_plot, micro_plot, prop_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+
+```
+
+```{r Variable Importance Figure}
+
+importance <- as.data.frame(c(importance_allo_model_avg[1:4], importance_avahi_model_avg[1:4], importance_cheiro_model_avg[1:4],
+  importance_hapa_model_avg[1:4], importance_albi_model_avg[1:4], importance_rubri_model_avg[1:4],
+  importance_lepi_model_avg[1:4], importance_micro_model_avg[1:4], importance_prop_model_avg[1:4]))
+colnames(importance)[1] <- "Importance"
+importance$Variable <- c(rep(c("Forest Loss Prop.", "Canopy Height", "Elevation", "Ruggedness"),9))
+importance$Species <- c(rep("A. trichotis", 4), rep("A. laniger", 4), rep("C. crossleyi", 4),
+                        rep("H. occidentalis", 4), rep("E. albifrons", 4), rep("E. rubriventer", 4),
+                        rep("L. seali", 4), rep("M. lehilahytsara", 4), rep("P. candidus", 4))
+importance$Direction <- c("+", "+", "-", "-", 
+                          "+", "+", "-", "-", 
+                          "+", "-", "-", "-", 
+                          "+", "+", "-", "+", 
+                          "-", "+", "+", "+", 
+                          "+", "+", "+", "+", 
+                          "+", "+", "-", "-", 
+                          "+", "-", "-", "+", 
+                          "+", "+", "+", "-"
+                          )
+
+importance2 <- importance
+
+importance_fig <- ggplot(data = importance2, aes(x = Species, y = Variable))+
+  geom_tile(aes(fill = Importance), color="white")+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))+
+  scale_fill_viridis_c(direction = -1,option="magma")+
+  geom_text(aes(label=Direction), color= c(rep(c("white","black",  "black", "black"),6),c("white","white",  "black", "black"),c("white","black",  "black", "black"),c("white","black",  "black", "black")), size=6)
+
+
+summary_rubri_model_avg$coefmat.full
+
+importance2 <- importance%>% dplyr::select(Species, Variable, Importance)
+importance2$Importance <- round(importance2$Importance, 3) 
+
+write.csv(importance2, "variable_importance.csv")
+
+```
+

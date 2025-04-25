@@ -1,0 +1,780 @@
+---
+title: "PredictionFigures"
+output: html_document
+date: "2025-03-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(ggplot2);library(ggpubr);library(terra);library(raster)
+
+prop_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/prop_predictions2.csv")
+allo_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/allo_predictions2.csv")
+avahi_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/avahi_predictions2.csv")
+albi_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/albi_predictions2.csv")
+hapa_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/hapa_predictions2.csv")
+lepi_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/lepi_predictions2.csv")
+micro_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/micro_predictions2.csv")
+cheiro_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/cheiro_predictions2.csv")
+rubri_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/rubri_predictions2.csv")
+
+prop_predictions$pfl2020 <- (prop_predictions$PA2020 - prop_predictions$PA2050)/prop_predictions$PA2020
+allo_predictions$pfl2020 <- (allo_predictions$PA2020 - allo_predictions$PA2050)/allo_predictions$PA2020
+avahi_predictions$pfl2020 <- (avahi_predictions$PA2020 - avahi_predictions$PA2050)/avahi_predictions$PA2020
+albi_predictions$pfl2020 <- (albi_predictions$PA2020 - albi_predictions$PA2050)/albi_predictions$PA2020
+hapa_predictions$pfl2020 <- (hapa_predictions$PA2020 - hapa_predictions$PA2050)/hapa_predictions$PA2020
+lepi_predictions$pfl2020 <- (lepi_predictions$PA2020 - lepi_predictions$PA2050)/lepi_predictions$PA2020
+micro_predictions$pfl2020 <- (micro_predictions$PA2020 - micro_predictions$PA2050)/micro_predictions$PA2020
+cheiro_predictions$pfl2020 <- (cheiro_predictions$PA2020 - cheiro_predictions$PA2050)/cheiro_predictions$PA2020
+rubri_predictions$pfl2020 <- (rubri_predictions$PA2020 - rubri_predictions$PA2050)/rubri_predictions$PA2020
+
+pred_prop <- raster("~/Documents/GitHub/COMATSA_GitHub2/prop_pred.tif")
+pred_allo <- raster("~/Documents/GitHub/COMATSA_GitHub2/allo_pred.tif")
+pred_avahi <- raster("~/Documents/GitHub/COMATSA_GitHub2/avahi_pred.tif")
+pred_albi <- raster("~/Documents/GitHub/COMATSA_GitHub2/albi_pred.tif")
+pred_hapa <- raster("~/Documents/GitHub/COMATSA_GitHub2/hapa_pred.tif")
+pred_lepi <- raster("~/Documents/GitHub/COMATSA_GitHub2/lepi_pred.tif")
+pred_micro <- raster("~/Documents/GitHub/COMATSA_GitHub2/micro_pred.tif")
+pred_cheiro <- raster("~/Documents/GitHub/COMATSA_GitHub2/cheiro_pred.tif")
+pred_rubri <- raster("~/Documents/GitHub/COMATSA_GitHub2/rubri_pred.tif")
+
+```
+
+```{r summarize}
+
+micro_summary <- micro_predictions %>% pivot_longer(cols = Buffer2020:PA2050) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+
+allo_summary <- allo_predictions %>% pivot_longer(cols = Buffer2020:PA2050) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+
+albi_summary <- albi_predictions %>% pivot_longer(cols = Buffer2020:PA2050) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+
+avahi_summary <- avahi_predictions %>% pivot_longer(cols = Buffer2020:PA2050) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+
+cheiro_summary <- cheiro_predictions %>% pivot_longer(cols = Buffer2020:PA2050) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+
+hapa_summary <- hapa_predictions %>% pivot_longer(cols = Buffer2020:PA2050) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+
+lepi_summary <- lepi_predictions %>% pivot_longer(cols = Buffer2020:PA2050) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+
+rubri_summary <- rubri_predictions %>% pivot_longer(cols = Buffer2020:PA2050) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+
+prop_summary <- prop_predictions %>% pivot_longer(cols = Buffer2020:PA2050) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+
+summary_total <- rbind(allo_summary, avahi_summary, cheiro_summary, hapa_summary, albi_summary, rubri_summary, lepi_summary, micro_summary, prop_summary)
+
+summary_total$Species <- c(rep("Allocebus trichotis",4),
+                           rep("Avahi laniger",4),
+                           rep("Cheirogaleus crossleyi",4),
+                           rep("Hapalemur occidentalis",4),
+                           rep("Eulemur albifrons",4),
+                           rep("Eulemur rubriventer",4),
+                           rep("Lepilemur seali",4),
+                           rep("Microcebus lehilahytsara",4),
+                           rep("Propithecus candidus",4))
+
+summary_total$mean <- round(summary_total$mean,0)
+summary_total$median <- round(summary_total$median,0)
+summary_total$lower <- round(summary_total$lower,0)
+summary_total$upper<- round(summary_total$upper,0)
+
+summary_total2 <- summary_total %>% dplyr::select(name, Species,mean:upper) %>% filter(name!="Buffer2050", name!= "Buffer2020") %>% arrange(name)
+
+write.csv(summary_total2, "summary_total2.csv")
+  
+```
+
+```{r Figures for populations in PA 2020}
+
+allo_plot <- ggplot(data = allo_predictions, aes(PA2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=allo_pointestimates[2], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=allo_summary[3,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=allo_summary[3,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("A. trichotis")))+
+  xlab("Predicted Subopulation Size")
+
+prop_plot <- ggplot(data = prop_predictions, aes(PA2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=prop_pointestimates[2], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=prop_summary[3,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=prop_summary[3,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("P. candidus")))+
+  xlab("Predicted Subopulation Size")
+
+hapa_plot <- ggplot(data = hapa_predictions, aes(PA2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=hapa_pointestimates[2], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=hapa_summary[3,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=hapa_summary[3,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("H. occidentalis")))+
+  xlab("Predicted Subopulation Size")
+
+rubri_plot <- ggplot(data = rubri_predictions, aes(PA2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=rubri_pointestimates[2], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=rubri_summary[3,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=rubri_summary[3,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("E. rubriventer")))+
+  xlab("Predicted Subopulation Size")
+
+albi_plot <- ggplot(data = albi_predictions, aes(PA2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=albi_pointestimates[2], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=albi_summary[3,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=albi_summary[3,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("E. albifrons")))+
+  xlab("Predicted Subopulation Size")
+
+cheiro_plot <- ggplot(data = cheiro_predictions, aes(PA2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=cheiro_pointestimates[2], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=cheiro_summary[3,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=cheiro_summary[3,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("C. crossleyi")))+
+  xlab("Predicted Subopulation Size")
+
+micro_plot <- ggplot(data = micro_predictions, aes(PA2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=micro_pointestimates[2], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=micro_summary[3,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=micro_summary[3,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("M. lehilahytsara")))+
+  xlab("Predicted Subopulation Size")
+
+avahi_plot <- ggplot(data = avahi_predictions, aes(PA2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=avahi_pointestimates[2], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=avahi_summary[3,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=avahi_summary[3,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("A. laniger")))+
+  xlab("Predicted Subopulation Size")
+
+lepi_plot <- ggplot(data = lepi_predictions, aes(PA2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=lepi_pointestimates[2], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=lepi_summary[3,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=lepi_summary[3,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("L. seali")))+
+  xlab("Predicted Subopulation Size")
+
+ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+
+```
+
+```{r Figures for populations in PA 2050}
+
+allo_plot <- ggplot(data = allo_predictions, aes(PA2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=allo_pointestimates[4], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=allo_summary[4,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=allo_summary[4,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("A. trichotis")))+
+  xlab("Predicted Subopulation Size")
+
+prop_plot <- ggplot(data = prop_predictions, aes(PA2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=prop_pointestimates[4], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=prop_summary[4,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=prop_summary[4,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("P. candidus")))+
+  xlab("Predicted Subopulation Size")
+
+hapa_plot <- ggplot(data = hapa_predictions, aes(PA2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=hapa_pointestimates[4], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=hapa_summary[4,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=hapa_summary[4,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("H. occidentalis")))+
+  xlab("Predicted Subopulation Size")
+
+rubri_plot <- ggplot(data = rubri_predictions, aes(PA2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=rubri_pointestimates[4], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=rubri_summary[4,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=rubri_summary[4,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("E. rubriventer")))+
+  xlab("Predicted Subopulation Size")
+
+albi_plot <- ggplot(data = albi_predictions, aes(PA2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=albi_pointestimates[4], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=albi_summary[4,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=albi_summary[4,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("E. albifrons")))+
+  xlab("Predicted Subopulation Size")
+
+cheiro_plot <- ggplot(data = cheiro_predictions, aes(PA2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=cheiro_pointestimates[4], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=cheiro_summary[4,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=cheiro_summary[4,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("C. crossleyi")))+
+  xlab("Predicted Subopulation Size")
+
+micro_plot <- ggplot(data = micro_predictions, aes(PA2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=micro_pointestimates[4], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=micro_summary[4,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=micro_summary[4,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("M. lehilahytsara")))+
+  xlab("Predicted Subopulation Size")
+
+avahi_plot <- ggplot(data = avahi_predictions, aes(PA2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=avahi_pointestimates[4], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=avahi_summary[4,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=avahi_summary[4,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("A. laniger")))+
+  xlab("Predicted Subopulation Size")
+
+lepi_plot <- ggplot(data = lepi_predictions, aes(PA2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=lepi_pointestimates[4], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=lepi_summary[4,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=lepi_summary[4,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("L. seali")))+
+  xlab("Predicted Subopulation Size")
+
+ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+
+```
+
+```{r Figures for populations in Buffer 2020}
+
+allo_plot <- ggplot(data = allo_predictions, aes(Buffer2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=allo_pointestimates[1], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=allo_summary[1,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=allo_summary[1,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("A. trichotis")))+
+  xlab("Predicted Subopulation Size")
+
+prop_plot <- ggplot(data = prop_predictions, aes(Buffer2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=prop_pointestimates[1], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=prop_summary[1,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=prop_summary[1,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("P. candidus")))+
+  xlab("Predicted Subopulation Size")
+
+hapa_plot <- ggplot(data = hapa_predictions, aes(Buffer2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=hapa_pointestimates[1], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=hapa_summary[1,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=hapa_summary[1,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("H. occidentalis")))+
+  xlab("Predicted Subopulation Size")
+
+rubri_plot <- ggplot(data = rubri_predictions, aes(Buffer2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=rubri_pointestimates[1], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=rubri_summary[1,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=rubri_summary[1,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("E. rubriventer")))+
+  xlab("Predicted Subopulation Size")
+
+albi_plot <- ggplot(data = albi_predictions, aes(Buffer2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=albi_pointestimates[1], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=albi_summary[1,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=albi_summary[1,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("E. albifrons")))+
+  xlab("Predicted Subopulation Size")
+
+cheiro_plot <- ggplot(data = cheiro_predictions, aes(Buffer2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=cheiro_pointestimates[1], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=cheiro_summary[1,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=cheiro_summary[1,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("C. crossleyi")))+
+  xlab("Predicted Subopulation Size")
+
+micro_plot <- ggplot(data = micro_predictions, aes(Buffer2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=micro_pointestimates[1], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=micro_summary[1,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=micro_summary[1,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("M. lehilahytsara")))+
+  xlab("Predicted Subopulation Size")
+
+avahi_plot <- ggplot(data = avahi_predictions, aes(Buffer2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=avahi_pointestimates[1], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=avahi_summary[1,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=avahi_summary[1,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("A. laniger")))+
+  xlab("Predicted Subopulation Size")
+
+lepi_plot <- ggplot(data = lepi_predictions, aes(Buffer2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=lepi_pointestimates[1], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=lepi_summary[1,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=lepi_summary[1,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("L. seali")))+
+  xlab("Predicted Subopulation Size")
+
+ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+
+```
+
+```{r Figures for populations in Buffer 2050}
+
+allo_plot <- ggplot(data = allo_predictions, aes(Buffer2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=allo_pointestimates[3], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=allo_summary[2,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=allo_summary[2,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("A. trichotis")))+
+  xlab("Predicted Subopulation Size")
+
+prop_plot <- ggplot(data = prop_predictions, aes(Buffer2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=prop_pointestimates[3], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=prop_summary[2,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=prop_summary[2,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("P. candidus")))+
+  xlab("Predicted Subopulation Size")
+
+hapa_plot <- ggplot(data = hapa_predictions, aes(Buffer2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=hapa_pointestimates[3], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=hapa_summary[2,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=hapa_summary[2,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("H. occidentalis")))+
+  xlab("Predicted Subopulation Size")
+
+rubri_plot <- ggplot(data = rubri_predictions, aes(Buffer2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=rubri_pointestimates[3], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=rubri_summary[2,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=rubri_summary[2,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("E. rubriventer")))+
+  xlab("Predicted Subopulation Size")
+
+albi_plot <- ggplot(data = albi_predictions, aes(Buffer2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=albi_pointestimates[3], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=albi_summary[2,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=albi_summary[2,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("E. albifrons")))+
+  xlab("Predicted Subopulation Size")
+
+cheiro_plot <- ggplot(data = cheiro_predictions, aes(Buffer2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=cheiro_pointestimates[3], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=cheiro_summary[2,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=cheiro_summary[2,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("C. crossleyi")))+
+  xlab("Predicted Subopulation Size")
+
+micro_plot <- ggplot(data = micro_predictions, aes(Buffer2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=micro_pointestimates[3], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=micro_summary[2,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=micro_summary[2,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("M. lehilahytsara")))+
+  xlab("Predicted Subopulation Size")
+
+avahi_plot <- ggplot(data = avahi_predictions, aes(Buffer2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=avahi_pointestimates[3], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=avahi_summary[2,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=avahi_summary[2,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("A. laniger")))+
+  xlab("Predicted Subopulation Size")
+
+lepi_plot <- ggplot(data = lepi_predictions, aes(Buffer2050))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=lepi_pointestimates[3], linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=lepi_summary[2,2]$mean, linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=lepi_summary[2,3]$median, linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("L. seali")))+
+  xlab("Predicted Subopulation Size")
+
+
+ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+
+
+```
+
+```{r Figures for prop forest loss in PA}
+
+allo_plot <- ggplot(data = allo_predictions, aes(pfl2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=((allo_pointestimates[2]-allo_pointestimates[4])/allo_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((allo_summary[3,2]$mean-allo_summary[4,2]$mean)/allo_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=((allo_summary[3,3]$median-allo_summary[4,3]$median)/allo_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("A. trichotis")))+
+  xlab("Predicted Direct Impact")
+
+albi_plot <- ggplot(data = albi_predictions, aes(pfl2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=((albi_pointestimates[2]-albi_pointestimates[4])/albi_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((albi_summary[3,2]$mean-albi_summary[4,2]$mean)/albi_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=((albi_summary[3,3]$median-albi_summary[4,3]$median)/albi_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("E. albifrons")))+
+  xlab("Predicted Direct Impact")
+
+avahi_plot <- ggplot(data = avahi_predictions, aes(pfl2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=((avahi_pointestimates[2]-avahi_pointestimates[4])/avahi_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((avahi_summary[3,2]$mean-avahi_summary[4,2]$mean)/avahi_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=((avahi_summary[3,3]$median-avahi_summary[4,3]$median)/avahi_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("A. laniger")))+
+  xlab("Predicted Direct Impact")
+
+cheiro_plot <- ggplot(data = cheiro_predictions, aes(pfl2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=((cheiro_pointestimates[2]-cheiro_pointestimates[4])/cheiro_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((cheiro_summary[3,2]$mean-cheiro_summary[4,2]$mean)/cheiro_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=((cheiro_summary[3,3]$median-cheiro_summary[4,3]$median)/cheiro_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("C. crossleyi")))+
+  xlab("Predicted Direct Impact")
+
+hapa_plot <- ggplot(data = hapa_predictions, aes(pfl2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=((hapa_pointestimates[2]-hapa_pointestimates[4])/hapa_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((hapa_summary[3,2]$mean-hapa_summary[4,2]$mean)/hapa_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=((hapa_summary[3,3]$median-hapa_summary[4,3]$median)/hapa_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("H. occidentalis")))+
+  xlab("Predicted Direct Impact")
+
+lepi_plot <- ggplot(data = lepi_predictions, aes(pfl2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=((lepi_pointestimates[2]-lepi_pointestimates[4])/lepi_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((lepi_summary[3,2]$mean-lepi_summary[4,2]$mean)/lepi_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=((lepi_summary[3,3]$median-lepi_summary[4,3]$median)/lepi_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("L. seali")))+
+  xlab("Predicted Direct Impact")
+
+micro_plot <- ggplot(data = micro_predictions, aes(pfl2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=((micro_pointestimates[2]-micro_pointestimates[4])/micro_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((micro_summary[3,2]$mean-micro_summary[4,2]$mean)/micro_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=((micro_summary[3,3]$median-micro_summary[4,3]$median)/micro_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("M. lehilahytsara")))+
+  xlab("Predicted Direct Impact")
+
+prop_plot <- ggplot(data = prop_predictions, aes(pfl2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=((prop_pointestimates[2]-prop_pointestimates[4])/prop_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((prop_summary[3,2]$mean-prop_summary[4,2]$mean)/prop_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=((prop_summary[3,3]$median-prop_summary[4,3]$median)/prop_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("P. candidus")))+
+  xlab("Predicted Direct Impact")
+
+rubri_plot <- ggplot(data = rubri_predictions, aes(pfl2020))+
+  geom_density(fill = "violet", color = "violet")+
+  theme_classic()+
+  ylab("Density")+
+  geom_vline(xintercept=((rubri_pointestimates[2]-rubri_pointestimates[4])/rubri_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((rubri_summary[3,2]$mean-rubri_summary[4,2]$mean)/rubri_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
+  geom_vline(xintercept=((rubri_summary[3,3]$median-rubri_summary[4,3]$median)/rubri_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
+   labs(title = expression(italic("E. rubriventer")))+
+  xlab("Predicted Direct Impact")
+
+ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+
+
+```
+
+```{r Spatial Predictions Figure}
+library(ggspatial);library(ggpubr)
+
+plot_cheiro <- ggplot() +
+  layer_spatial(mask(pred_cheiro, buffer))+
+  theme_void()+
+ scale_fill_gradientn(colours = terrain.colors(10), name = expression(atop("Pop. Density", "(Ind./" * km^2 * ")")), trans="reverse",na.value="white")+
+ layer_spatial(bound, fill=NA, color="black")+
+   labs(title = expression(italic("C. crossleyi")))
+
+plot_micro <- ggplot() +
+  layer_spatial(mask(pred_micro, buffer))+
+  theme_void()+
+ scale_fill_gradientn(colours = terrain.colors(10), name = expression(atop("Pop. Density", "(Ind./" * km^2 * ")")), trans="reverse",na.value="white")+
+ layer_spatial(bound, fill=NA, color="black")+
+   labs(title = expression(italic("M. lehilahytsara")))
+
+plot_allo <- ggplot() +
+  layer_spatial(mask(pred_allo, buffer))+
+  theme_void()+
+ scale_fill_gradientn(colours = terrain.colors(10), name = expression(atop("Pop. Density", "(Ind./" * km^2 * ")")), trans="reverse",na.value="white")+
+ layer_spatial(bound, fill=NA, color="black")+
+   labs(title = expression(italic("A. trichotis")))
+
+plot_lepi <- ggplot() +
+ layer_spatial(mask(pred_lepi, buffer))+
+  theme_void()+
+ scale_fill_gradientn(colours = terrain.colors(10), name = expression(atop("Pop. Density", "(Ind./" * km^2 * ")")), trans="reverse",na.value="white")+
+ layer_spatial(bound, fill=NA, color="black")+
+   labs(title = expression(italic("L. seali")))
+
+plot_avahi <- ggplot() +
+ layer_spatial(mask(pred_avahi, buffer))+
+  theme_void()+
+ scale_fill_gradientn(colours = terrain.colors(10), name = expression(atop("Pop. Density", "(Ind./" * km^2 * ")")), trans="reverse",na.value="white")+
+ layer_spatial(bound, fill=NA, color="black")+
+   labs(title = expression(italic("A. laniger")))
+
+plot_prop <- ggplot() +
+  layer_spatial(mask(pred_prop, buffer))+
+  theme_void()+
+ scale_fill_gradientn(colours = terrain.colors(10), name = expression(atop("Pop. Density", "(Ind./" * km^2 * ")")), trans="reverse",na.value="white")+
+ layer_spatial(bound, fill=NA, color="black")+
+   labs(title = expression(italic("P. candidus")))
+
+plot_rubri <- ggplot() +
+  layer_spatial(mask(pred_rubri, buffer))+
+  theme_void()+
+ scale_fill_gradientn(colours = terrain.colors(10), name =  expression(atop("Pop. Density", "(Ind./" * km^2 * ")")), trans="reverse",na.value="white")+
+ layer_spatial(bound, fill=NA, color="black")+
+   labs(title = expression(italic("E. rubriventer")))
+
+plot_albi <- ggplot() +
+ layer_spatial(mask(pred_albi, buffer))+
+  theme_void()+
+ scale_fill_gradientn(colours = terrain.colors(10), name = expression(atop("Pop. Density", "(Ind./" * km^2 * ")")), trans="reverse",na.value="white")+
+ layer_spatial(bound, fill=NA, color="black")+
+   labs(title = expression(italic("E. albifrons")))
+
+plot_hapa <- ggplot() +
+ layer_spatial(mask(pred_hapa, buffer))+
+  theme_void()+
+ scale_fill_gradientn(colours = terrain.colors(10),name = expression(atop("Pop. Density", "(Ind./" * km^2 * ")")), trans="reverse",na.value="white")+
+ layer_spatial(bound, fill=NA, color="black")+
+   labs(title = expression(italic("H. occidentalis")))
+
+plot_density_predict <- ggarrange(plot_allo,plot_cheiro,plot_micro,plot_lepi,plot_avahi, plot_prop,  plot_albi, plot_rubri, plot_hapa,  common.legend = FALSE, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"),nrow=3,ncol=3)
+
+```
+
+```{r Variable Importance Figure}
+
+importance <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/variable_importance.csv")
+
+importance$Variable[importance$Variable=="ForestLossProp"] <- "Forest Loss Prop."
+
+importance$Species[importance$Species=="Albi"] <- "E. albifrons"
+importance$Species[importance$Species=="Avahi"] <- "A. laniger"
+importance$Species[importance$Species=="Cheiro"] <- "C. crossleyi"
+importance$Species[importance$Species=="Hapa"] <- "H. occidentalis"
+importance$Species[importance$Species=="Lepi"] <- "L. seali"
+importance$Species[importance$Species=="Micro"] <- "M. lehilahytsara"
+importance$Species[importance$Species=="Prop"] <- "P. candidus"
+importance$Species[importance$Species=="Rubri"] <- "E. rubriventer"
+importance$Species[importance$Species=="Allo"] <- "A. trichotis"
+
+importance$Color <- importance$Importance
+importance$Color[importance$Color >0.6] <- "white"
+importance$Color[importance$Color !="white"] <- "black"
+
+importance$Species <- factor(importance$Species, levels = c("A. trichotis", "C. crossleyi", "M. lehilahytsara", "L. seali", "A. laniger", "P. candidus", "E. albifrons", "E. rubriventer", "H. occidentalis"))
+
+
+importance_fig <- ggplot(data = importance, aes(x = Species, y = Variable)) +
+  geom_tile(aes(fill = Importance), color = "white") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  scale_fill_viridis_c(direction = -1, option = "magma") +
+  geom_text(aes(label = sign, color = Color), size = 6) +  
+  scale_color_manual(values = c("white" = "white", "black" = "black"), guide = "none") +
+  geom_vline(xintercept = 5.5, linetype= "dashed", size =1)
+
+
+
+
+```
+
+```{r}
+
+hapa_predictions %>% dplyr::select(pfl2020)%>% summarise(mean = mean(pfl2020), median = median(pfl2020),
+                               lower = quantile(pfl2020, 0.025),
+                               upper = quantile(pfl2020, 0.975),
+                               min = min(pfl2020), 
+                               max = max(pfl2020))
+
+rubri_predictions %>% dplyr::select(pfl2020)%>% summarise(mean = mean(pfl2020), median = median(pfl2020),
+                               lower = quantile(pfl2020, 0.025),
+                               upper = quantile(pfl2020, 0.975),
+                               min = min(pfl2020), 
+                               max = max(pfl2020))
+
+allo_predictions %>% dplyr::select(pfl2020)%>% summarise(mean = mean(pfl2020), median = median(pfl2020),
+                               lower = quantile(pfl2020, 0.025),
+                               upper = quantile(pfl2020, 0.975),
+                               min = min(pfl2020), 
+                               max = max(pfl2020))
+
+prop_predictions %>% dplyr::select(pfl2020)%>% summarise(mean = mean(pfl2020), median = median(pfl2020),
+                               lower = quantile(pfl2020, 0.025),
+                               upper = quantile(pfl2020, 0.975),
+                               min = min(pfl2020), 
+                               max = max(pfl2020))
+cheiro_predictions %>% dplyr::select(pfl2020)%>% summarise(mean = mean(pfl2020), median = median(pfl2020),
+                               lower = quantile(pfl2020, 0.025),
+                               upper = quantile(pfl2020, 0.975),
+                               min = min(pfl2020), 
+                               max = max(pfl2020))
+
+micro_predictions %>% dplyr::select(pfl2020)%>% summarise(mean = mean(pfl2020), median = median(pfl2020),
+                               lower = quantile(pfl2020, 0.025),
+                               upper = quantile(pfl2020, 0.975),
+                               min = min(pfl2020), 
+                               max = max(pfl2020))
+
+lepi_predictions %>% dplyr::select(pfl2020)%>% summarise(mean = mean(pfl2020), median = median(pfl2020),
+                               lower = quantile(pfl2020, 0.025),
+                               upper = quantile(pfl2020, 0.975),
+                               min = min(pfl2020), 
+                               max = max(pfl2020))
+
+avahi_predictions %>% dplyr::select(pfl2020)%>% summarise(mean = mean(pfl2020), median = median(pfl2020),
+                               lower = quantile(pfl2020, 0.025),
+                               upper = quantile(pfl2020, 0.975),
+                               min = min(pfl2020), 
+                               max = max(pfl2020))
+
+albi_predictions %>% dplyr::select(pfl2020)%>% summarise(mean = mean(pfl2020), median = median(pfl2020),
+                               lower = quantile(pfl2020, 0.025),
+                               upper = quantile(pfl2020, 0.975),
+                               min = min(pfl2020), 
+                               max = max(pfl2020))
+```
+

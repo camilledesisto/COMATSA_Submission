@@ -1,0 +1,1182 @@
+---
+title: "04_SpatialPredictions"
+output: html_document
+date: "2024-02-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Load packages and data}
+#install.packages("rgdal", repos="http://R-Forge.R-project.org")
+require(raster)
+require(tidyverse)
+require(sf)
+library(terra)
+
+getwd()
+
+F2050 <- raster("~/Downloads/fcc_2050_AFR_aea.tif")
+
+extent_wgs84 <- extent(49, 50 ,-15 ,  -14 )
+
+# Create a SpatialPolygons object for the extent
+extent_polygon <- as(extent_wgs84, "SpatialPolygons")
+proj4string(extent_polygon) <- CRS("+proj=longlat +datum=WGS84")
+extent_polygon_transformed <- spTransform(extent_polygon, crs(F2050))
+transformed_extent <- extent(extent_polygon_transformed)
+F2050 <- crop(F2050, transformed_extent)
+
+
+DEM <- raster("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/Data/covariate_tif/ASTGTMV003_S15E049_dem.tif")
+FH <- raster("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/Data/covariate_tif/Forest_height_2019_SAFR.tif")
+TRI <- raster("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/Data/covariate_tif/TRI_Nov2023.tif")
+FL <- raster("~/Documents/GitHub/COMATSA_GitHub2/Data/Comatsa_ForestLoss/FARForestLoss20102021.tif")
+FC <- raster("~/Documents/GitHub/COMATSA_GitHub2/Data/Comatsa_ForestLoss/FARForestCover_2010.tif")
+
+
+names(FL) <- "ForestLoss"
+FP <- raster("~/Downloads/forest_2020.tif")
+extent_polygon <- as(extent_wgs84, "SpatialPolygons")
+proj4string(extent_polygon) <- CRS("+proj=longlat +datum=WGS84")
+extent_polygon_transformed <- spTransform(extent_polygon, crs(FP))
+transformed_extent <- extent(extent_polygon_transformed)
+FP <- crop(FP, transformed_extent)
+
+
+FPred <- raster("Data/clipped_deforestation_2050.img")
+#F2020 <- raster("Data/clipped_deforestation_2020.img")
+names(FP) <- "ForestTot"
+bound <- read_sf("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/CroppedRasters/EliseData 2/comatsa_sud_boundary.shp")
+buffer <- read_sf("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/Data/covariate_tif/comatsa_buffer_sites.shp")
+buffer <- st_transform(buffer, crs = 4326)
+bound <- st_transform(bound ,crs = 4326)
+
+```
+
+```{r Creat Forest Loss DFs for Each Lemur Species}
+
+focal_weights_allo <- focalMat(FL, 180.2, type = "circle")
+focal_weights_allo[focal_weights_allo > 0] <- 1  
+FL_allo <- terra::focal(FL, w = focal_weights_allo, fun = "sum", na.rm = TRUE)
+
+focal_weights_albi <- focalMat(FL, 203.4, type = "circle")
+focal_weights_albi[focal_weights_albi > 0] <- 1  
+FL_albi <- terra::focal(FL, w = focal_weights_albi, fun = "sum", na.rm = TRUE)
+
+focal_weights_avahi <- focalMat(FL, 56.4, type = "circle")
+focal_weights_avahi[focal_weights_avahi > 0] <- 1  
+FL_avahi <- terra::focal(FL, w = focal_weights_avahi, fun = "sum", na.rm = TRUE)
+
+focal_weights_lepi <- focalMat(FL, 43.7, type = "circle")
+focal_weights_lepi[focal_weights_lepi > 0] <- 1  
+FL_lepi <- terra::focal(FL, w = focal_weights_lepi, fun = "sum", na.rm = TRUE)
+
+focal_weights_cheiro <- focalMat(FL, 89.2, type = "circle")
+focal_weights_cheiro[focal_weights_cheiro > 0] <- 1  
+FL_cheiro <- terra::focal(FL, w = focal_weights_cheiro, fun = "sum", na.rm = TRUE)
+
+focal_weights_micro <- focalMat(FL, 77.8, type = "circle")
+focal_weights_micro[focal_weights_micro > 0] <- 1  
+FL_micro <- terra::focal(FL, w = focal_weights_micro, fun = "sum", na.rm = TRUE)
+
+focal_weights_hapa <- focalMat(FL, 119.7, type = "circle")
+focal_weights_hapa[focal_weights_hapa > 0] <- 1  
+FL_hapa <- terra::focal(FL, w = focal_weights_hapa, fun = "sum", na.rm = TRUE)
+
+focal_weights_rubri <- focalMat(FL, 249.1, type = "circle")
+focal_weights_rubri[focal_weights_rubri > 0] <- 1  
+FL_rubri <- terra::focal(FL, w = focal_weights_rubri, fun = "sum", na.rm = TRUE)
+
+focal_weights_prop <- focalMat(FL, 364.3, type = "circle")
+focal_weights_prop[focal_weights_prop > 0] <- 1  
+FL_prop <- terra::focal(FL, w = focal_weights_prop, fun = "sum", na.rm = TRUE)
+
+
+
+focal_weights_allo <- focalMat(FC, 180.2, type = "circle")
+focal_weights_allo[focal_weights_allo > 0] <- 1  
+FC_allo <- terra::focal(FC, w = focal_weights_allo, fun = "sum", na.rm = TRUE)
+
+focal_weights_albi <- focalMat(FC, 203.4, type = "circle")
+focal_weights_albi[focal_weights_albi > 0] <- 1  
+FC_albi <- terra::focal(FC, w = focal_weights_albi, fun = "sum", na.rm = TRUE)
+
+focal_weights_avahi <- focalMat(FC, 56.4, type = "circle")
+focal_weights_avahi[focal_weights_avahi > 0] <- 1  
+FC_avahi <- terra::focal(FC, w = focal_weights_avahi, fun = "sum", na.rm = TRUE)
+
+focal_weights_lepi <- focalMat(FC, 43.7, type = "circle")
+focal_weights_lepi[focal_weights_lepi > 0] <- 1  
+FC_lepi <- terra::focal(FC, w = focal_weights_lepi, fun = "sum", na.rm = TRUE)
+
+focal_weights_cheiro <- focalMat(FC, 89.2, type = "circle")
+focal_weights_cheiro[focal_weights_cheiro > 0] <- 1  
+FC_cheiro <- terra::focal(FC, w = focal_weights_cheiro, fun = "sum", na.rm = TRUE)
+
+focal_weights_micro <- focalMat(FC, 77.8, type = "circle")
+focal_weights_micro[focal_weights_micro > 0] <- 1  
+FC_micro <- terra::focal(FC, w = focal_weights_micro, fun = "sum", na.rm = TRUE)
+
+focal_weights_hapa <- focalMat(FC, 119.7, type = "circle")
+focal_weights_hapa[focal_weights_hapa > 0] <- 1  
+FC_hapa <- terra::focal(FC, w = focal_weights_hapa, fun = "sum", na.rm = TRUE)
+
+focal_weights_rubri <- focalMat(FC, 249.1, type = "circle")
+focal_weights_rubri[focal_weights_rubri > 0] <- 1  
+FC_rubri <- terra::focal(FC, w = focal_weights_rubri, fun = "sum", na.rm = TRUE)
+
+focal_weights_prop <- focalMat(FC, 364.3, type = "circle")
+focal_weights_prop[focal_weights_prop > 0] <- 1  
+FC_prop <- terra::focal(FC, w = focal_weights_prop, fun = "sum", na.rm = TRUE)
+
+
+```
+
+```{r Spatial data cleaning}
+FP <- projectRaster(FP, crs = crs(DEM), method = "ngb")
+FPred <- projectRaster(FPred, crs = crs(DEM), method = "ngb")
+FL_prop <- projectRaster(FL_prop, crs = crs(DEM))
+FC_prop <- projectRaster(FC_prop, crs = crs(DEM))
+FL_albi <- projectRaster(FL_albi, crs = crs(DEM))
+FC_albi <- projectRaster(FC_albi, crs = crs(DEM))
+FL_allo <- projectRaster(FL_allo, crs = crs(DEM))
+FC_allo <- projectRaster(FC_allo, crs = crs(DEM))
+FL_avahi <- projectRaster(FL_avahi, crs = crs(DEM))
+FC_avahi <- projectRaster(FC_avahi, crs = crs(DEM))
+FL_cheiro <- projectRaster(FL_cheiro, crs = crs(DEM))
+FC_cheiro <- projectRaster(FC_cheiro, crs = crs(DEM))
+FL_hapa <- projectRaster(FL_hapa, crs = crs(DEM))
+FC_hapa <- projectRaster(FC_hapa, crs = crs(DEM))
+FL_lepi <- projectRaster(FL_lepi, crs = crs(DEM))
+FC_lepi <- projectRaster(FC_lepi, crs = crs(DEM))
+FL_micro <- projectRaster(FL_micro, crs = crs(DEM))
+FC_micro <- projectRaster(FC_micro, crs = crs(DEM))
+FL_rubri <- projectRaster(FL_rubri, crs = crs(DEM))
+FC_rubri <- projectRaster(FC_rubri, crs = crs(DEM))
+F2020 <- projectRaster(FP, crs = crs(DEM), method = "ngb")
+F2050 <- projectRaster(F2050, crs = crs(DEM), method = "ngb")
+FL <- projectRaster(FL, crs = crs(DEM), method = "ngb")
+FC <- projectRaster(FC, crs = crs(DEM), method = "ngb")
+
+
+bb <- extent(buffer)
+F2020 <- extent(F2020)
+
+FL <- crop(x = FL, y = bb)
+FH <- crop(x = FH, y = bb)
+DEM <- crop(x = DEM, y = bb)
+TRI <- crop(x = TRI, y = bb)
+
+F2050 <- crop(x = F2050, y = DEM)
+FL_prop <- crop(x = FL_prop, y = bb)
+FC_prop <- crop(x = FC_prop, y = bb)
+FL_albi <- crop(x = FL_albi, y = bb)
+FC_albi <- crop(x = FC_albi, y = bb)
+FL_allo <- crop(x = FL_allo, y = bb)
+FC_allo <- crop(x = FC_allo, y = bb)
+FL_cheiro <- crop(x = FL_cheiro, y = bb)
+FC_cheiro <- crop(x = FC_cheiro, y = bb)
+FL_hapa <- crop(x = FL_hapa, y = bb)
+FC_hapa <- crop(x = FC_hapa, y = bb)
+FL_lepi <- crop(x = FL_lepi, y = bb)
+FC_lepi <- crop(x = FC_lepi, y = bb)
+FL_micro <- crop(x = FL_micro, y = bb)
+FC_micro <- crop(x = FC_micro, y = bb)
+FL_rubri <- crop(x = FL_rubri, y = bb)
+FC_rubri <- crop(x = FC_rubri, y = bb)
+#FC_2020 <- crop(x = F2020, y = bb)
+FP <- crop(x = FP, y = FC_rubri) 
+#FPred <- crop(x = FPred, y = FL)
+
+FL <- projectRaster(FL,DEM,method = 'ngb')
+FL_prop <- projectRaster(FL_prop,DEM,method = 'bilinear')
+FC_prop <- projectRaster(FC_prop,DEM,method = 'bilinear')
+FL_albi <- projectRaster(FL_albi,DEM,method = 'bilinear')
+FC_albi <- projectRaster(FC_albi,DEM,method = 'bilinear')
+FL_allo <- projectRaster(FL_allo,DEM,method = 'bilinear')
+FC_allo <- projectRaster(FC_allo,DEM,method = 'bilinear')
+FL_avahi <- projectRaster(FL_avahi,DEM,method = 'bilinear')
+FC_avahi <- projectRaster(FC_avahi,DEM,method = 'bilinear')
+FL_cheiro <- projectRaster(FL_cheiro,DEM,method = 'bilinear')
+FC_cheiro <- projectRaster(FC_cheiro,DEM,method = 'bilinear')
+FL_micro <- projectRaster(FL_micro,DEM,method = 'bilinear')
+FC_micro <- projectRaster(FC_micro,DEM,method = 'bilinear')
+FL_hapa <- projectRaster(FL_hapa,DEM,method = 'bilinear')
+FC_hapa <- projectRaster(FC_hapa,DEM,method = 'bilinear')
+FL_lepi <- projectRaster(FL_lepi,DEM,method = 'bilinear')
+FC_lepi <- projectRaster(FC_lepi,DEM,method = 'bilinear')
+FL_rubri <- projectRaster(FL_rubri,DEM,method = 'bilinear')
+FC_rubri <- projectRaster(FC_rubri,DEM,method = 'bilinear')
+FH <- projectRaster(FH,DEM,method = 'bilinear')
+FP <- projectRaster(FP,DEM,method = "ngb")
+F2050 <- projectRaster(F2050,DEM,  method = "ngb")
+FPred <- projectRaster(FPred,DEM,  method = "ngb")
+
+stacked_habitat <- stack(DEM,TRI,FH, FL, FL_prop, FC_prop, FL_albi, FC_albi, FL_allo, FC_allo,
+                         FL_cheiro, FC_cheiro, FL_micro, FC_micro, FL_hapa, FC_hapa, FL_lepi, FC_lepi,
+                         FL_rubri, FC_rubri, FL_avahi, FC_avahi, FP, F2050)
+names(stacked_habitat) <- c("Band.1.1", "Band.1.2", "Layer_1", "ForestLoss", "Band_1.1", "Band_1.2", "Band_1.3", "Band_1.4", "Band_1.5", "Band_1.6", "Band_1.7", "Band_1.8", "Band_1.9", "Band_1.10", "Band_1.11", "Band_1.12", "Band_1.13", "Band_1.14", "Band_1.15", "Band_1.16", "Band_1.17","Band_1.18", "ForestTot", "fcc_2050_AFR_aea")
+
+values(stacked_habitat$Band_1.1)[values(stacked_habitat$Band_1.1)<0] <-0
+values(stacked_habitat$Band_1.2)[values(stacked_habitat$Band_1.2)<0] <-0
+values(stacked_habitat$Band_1.3)[values(stacked_habitat$Band_1.3)<0] <-0
+values(stacked_habitat$Band_1.4)[values(stacked_habitat$Band_1.4)<0] <-0
+values(stacked_habitat$Band_1.5)[values(stacked_habitat$Band_1.5)<0] <-0
+values(stacked_habitat$Band_1.6)[values(stacked_habitat$Band_1.6)<0] <-0
+values(stacked_habitat$Band_1.7)[values(stacked_habitat$Band_1.7)<0] <-0
+values(stacked_habitat$Band_1.8)[values(stacked_habitat$Band_1.8)<0] <-0
+values(stacked_habitat$Band_1.9)[values(stacked_habitat$Band_1.9)<0] <-0
+values(stacked_habitat$Band_1.10)[values(stacked_habitat$Band_1.10)<0] <-0
+values(stacked_habitat$Band_1.11)[values(stacked_habitat$Band_1.11)<0] <-0
+values(stacked_habitat$Band_1.12)[values(stacked_habitat$Band_1.12)<0] <-0
+values(stacked_habitat$Band_1.13)[values(stacked_habitat$Band_1.13)<0] <-0
+values(stacked_habitat$Band_1.14)[values(stacked_habitat$Band_1.14)<0] <-0
+values(stacked_habitat$Band_1.15)[values(stacked_habitat$Band_1.15)<0] <-0
+values(stacked_habitat$Band_1.16)[values(stacked_habitat$Band_1.16)<0] <-0
+values(stacked_habitat$Band_1.17)[values(stacked_habitat$Band_1.17)<0] <-0
+values(stacked_habitat$Band_1.18)[values(stacked_habitat$Band_1.18)<0] <-0
+
+stacked_habitat$FLP_prop2 <- stacked_habitat$Band_1.1 / stacked_habitat$Band_1.2
+stacked_habitat$FLP_prop <- stacked_habitat$Band_1.1 / stacked_habitat$Band_1.2
+stacked_habitat$FLP_albi <- stacked_habitat$Band_1.3 / stacked_habitat$Band_1.4
+stacked_habitat$FLP_allo <- stacked_habitat$Band_1.5 / stacked_habitat$Band_1.6
+stacked_habitat$FLP_cheiro <- stacked_habitat$Band_1.7 / stacked_habitat$Band_1.8
+stacked_habitat$FLP_micro <- stacked_habitat$Band_1.9 / stacked_habitat$Band_1.10
+stacked_habitat$FLP_hapa <- stacked_habitat$Band_1.11 / stacked_habitat$Band_1.12
+stacked_habitat$FLP_lepi <- stacked_habitat$Band_1.13 / stacked_habitat$Band_1.14
+stacked_habitat$FLP_rubri <- stacked_habitat$Band_1.15 / stacked_habitat$Band_1.16
+stacked_habitat$FLP_avahi <- stacked_habitat$Band_1.17 / stacked_habitat$Band_1.18
+
+values(stacked_habitat$FLP_prop2)[values(stacked_habitat$FLP_prop2)>1] <-1
+values(stacked_habitat$FLP_prop)[values(stacked_habitat$FLP_prop)>1] <-1
+values(stacked_habitat$FLP_albi)[values(stacked_habitat$FLP_albi)>1] <-1
+values(stacked_habitat$FLP_allo)[values(stacked_habitat$FLP_allo)>1] <-1
+values(stacked_habitat$FLP_cheiro)[values(stacked_habitat$FLP_cheiro)>1] <-1
+values(stacked_habitat$FLP_micro)[values(stacked_habitat$FLP_micro)>1] <-1
+values(stacked_habitat$FLP_hapa)[values(stacked_habitat$FLP_hapa)>1] <-1
+values(stacked_habitat$FLP_lepi)[values(stacked_habitat$FLP_lepi)>1] <-1
+values(stacked_habitat$FLP_rubri)[values(stacked_habitat$FLP_rubri)>1] <-1
+values(stacked_habitat$FLP_avahi)[values(stacked_habitat$FLP_avahi)>1] <-1
+
+stacked_habitat$Layer_1[stacked_habitat$Layer_1<0] <- 0
+
+#Clamping
+habitat2 <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/habitat_covs.csv")
+
+values(stacked_habitat$Band.1.1)[values(stacked_habitat$Band.1.1)<min(habitat2$Elevation)]<- min(habitat2$Elevation)
+
+values(stacked_habitat$Band.1.1)[values(stacked_habitat$Band.1.1)>max(habitat2$Elevation)]<- max(habitat2$Elevation)
+
+values(stacked_habitat$Band.1.2)[values(stacked_habitat$Band.1.2)<min(habitat2$Ruggedness)]<- min(habitat2$Ruggedness)
+
+values(stacked_habitat$Band.1.2)[values(stacked_habitat$Band.1.2)>max(habitat2$Ruggedness)]<- max(habitat2$Ruggedness)
+
+values(stacked_habitat$Layer_1)[values(stacked_habitat$Layer_1)<min(habitat2$CanopyHeight)]<- min(habitat2$CanopyHeight)
+
+values(stacked_habitat$Layer_1)[values(stacked_habitat$Layer_1)>max(habitat2$CanopyHeight)]<- max(habitat2$CanopyHeight)
+
+
+values(stacked_habitat$FLP_allo)[values(stacked_habitat$FLP_allo)<min(habitat2$ForestLossProp[habitat2$Species=="Allocebus_trichotis"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$FLP_allo)[values(stacked_habitat$FLP_allo)>max(habitat2$ForestLossProp[habitat2$Species=="Allocebus_trichotis"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$FLP_albi)[values(stacked_habitat$FLP_albi)<min(habitat2$ForestLossProp[habitat2$Species=="Eulemur_albifrons"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$FLP_albi)[values(stacked_habitat$FLP_albi)>max(habitat2$ForestLossProp[habitat2$Species=="Eulemur_albifrons"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$FLP_avahi)[values(stacked_habitat$FLP_avahi)<min(habitat2$ForestLossProp[habitat2$Species=="Avahi_laniger"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$FLP_avahi)[values(stacked_habitat$FLP_avahi)>max(habitat2$ForestLossProp[habitat2$Species=="Avahi_laniger"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$FLP_lepi)[values(stacked_habitat$FLP_lepi)<min(habitat2$ForestLossProp[habitat2$Species=="Lepilemur_saeli"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$FLP_lepi)[values(stacked_habitat$FLP_lepi)>max(habitat2$ForestLossProp[habitat2$Species=="Lepilemur_saeli"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$FLP_cheiro)[values(stacked_habitat$FLP_cheiro)<min(habitat2$ForestLossProp[habitat2$Species=="Cheirogaleus_crossleyi"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$FLP_cheiro)[values(stacked_habitat$FLP_cheiro)>max(habitat2$ForestLossProp[habitat2$Species=="Cheirogaleus_crossleyi"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$FLP_micro)[values(stacked_habitat$FLP_micro)<min(habitat2$ForestLossProp[habitat2$Species=="Microcebus_lehilahytsara"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$FLP_micro)[values(stacked_habitat$FLP_micro)>max(habitat2$ForestLossProp[habitat2$Species=="Microcebus_lehilahytsara"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$FLP_hapa)[values(stacked_habitat$FLP_hapa)<min(habitat2$ForestLossProp[habitat2$Species=="Hapalemur_occidentalis"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$FLP_hapa)[values(stacked_habitat$FLP_hapa)>max(habitat2$ForestLossProp[habitat2$Species=="Hapalemur_occidentalis"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$FLP_prop)[values(stacked_habitat$FLP_prop)<min(habitat2$ForestLossProp[habitat2$Species=="Propithecus_candidus"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$FLP_prop)[values(stacked_habitat$FLP_prop)>max(habitat2$ForestLossProp[habitat2$Species=="Propithecus_candidus"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$FLP_rubri)[values(stacked_habitat$FLP_rubri)<min(habitat2$ForestLossProp[habitat2$Species=="Eulemur_rubriventer"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Eulemur_rubriventer"])
+
+values(stacked_habitat$FLP_rubri)[values(stacked_habitat$FLP_rubri)>max(habitat2$ForestLossProp[habitat2$Species=="Eulemur_rubriventer"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Eulemur_rubriventer"])
+
+
+```
+
+```{r predictions prop}
+prop_predictions <- matrix(NA, nrow = 100, ncol = 4)
+
+for (i in 1:100) {
+  coefs <- simulated_coefs_df_prop[i,]
+
+ pred_prop <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_prop"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_prop <-  pred_prop^2
+                      
+  pred_prop[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  pred_prop[pred_prop> max(densities_habitat_prop$Density_km2)] <- max(densities_habitat_prop$Density_km2)
+
+
+  prop_2050 <- pred_prop
+  prop_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_prop * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(prop_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_prop_pa <- mask(pred_prop, bound)
+  prop_2050_pa <- mask(prop_2050, bound)
+
+  pa2020_sum <- global(pred_prop_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(prop_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  prop_predictions[i, ] <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+}
+
+prop_predictions2 <- data.frame(prop_predictions)
+colnames(prop_predictions2) <- c("Buffer2020", "Buffer2050", "PA2020", "PA2050")
+
+prop_predictions2$BufferLoss <- 1-prop_predictions2$Buffer2050/prop_predictions2$Buffer2020
+prop_predictions2$PALoss <- 1-prop_predictions2$PA2050/prop_predictions2$PA2020
+
+prop_summary <- prop_predictions2 %>% pivot_longer(cols = Buffer2020:PALoss) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+ 
+
+prop_summary
+
+
+coefs <- prop_coefficients
+
+pred_prop <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_prop"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_prop <- (pred_prop)^2
+  pred_prop[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  
+  pred_prop[pred_prop> max(densities_habitat_prop$Density_km2)] <- max(densities_habitat_prop$Density_km2)
+
+
+  prop_2050 <- pred_prop
+  prop_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_prop * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(prop_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_prop_pa <- mask(pred_prop, bound)
+  prop_2050_pa <- mask(prop_2050, bound)
+
+  pa2020_sum <- global(pred_prop_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(prop_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  prop_prediction <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+
+```
+
+```{r predictions albi}
+albi_predictions <- matrix(NA, nrow = 100, ncol = 4)
+
+for (i in 1:100) {
+  coefs <- simulated_coefs_df_albi[i,]
+
+ pred_albi <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_albi"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_albi <-  pred_albi^2
+                      
+  pred_albi[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  pred_albi[pred_albi> max(densities_habitat_albi$Density_km2)] <- max(densities_habitat_albi$Density_km2)
+
+
+  albi_2050 <- pred_albi
+  albi_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_albi * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(albi_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_albi_pa <- mask(pred_albi, bound)
+  albi_2050_pa <- mask(albi_2050, bound)
+
+  pa2020_sum <- global(pred_albi_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(albi_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  albi_predictions[i, ] <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+}
+
+albi_predictions2 <- data.frame(albi_predictions)
+colnames(albi_predictions2) <- c("Buffer2020", "Buffer2050", "PA2020", "PA2050")
+
+
+
+albi_predictions2$BufferLoss <- 1-albi_predictions2$Buffer2050/albi_predictions2$Buffer2020
+albi_predictions2$PALoss <- 1-albi_predictions2$PA2050/albi_predictions2$PA2020
+
+albi_summary <- albi_predictions2 %>% pivot_longer(cols = Buffer2020:PALoss) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+ 
+
+albi_summary
+
+
+coefs <- albi_coefficients
+
+pred_albi <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_albi"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_albi <- (pred_albi)^2
+  pred_albi[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  
+  pred_albi[pred_albi> max(densities_habitat_albi$Density_km2)] <- max(densities_habitat_albi$Density_km2)
+
+
+  albi_2050 <- pred_albi
+  albi_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_albi * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(albi_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_albi_pa <- mask(pred_albi, bound)
+  albi_2050_pa <- mask(albi_2050, bound)
+
+  pa2020_sum <- global(pred_albi_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(albi_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  albi_prediction <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+
+```
+
+```{r predictions cheiro}
+cheiro_predictions <- matrix(NA, nrow = 100, ncol = 4)
+
+for (i in 1:100) {
+  coefs <- simulated_coefs_df_cheiro[i,]
+
+ pred_cheiro <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_cheiro"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_cheiro <-  pred_cheiro^2
+                      
+  pred_cheiro[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  pred_cheiro[pred_cheiro> max(densities_habitat_cheiro$Density_km2)] <- max(densities_habitat_cheiro$Density_km2)
+
+
+  cheiro_2050 <- pred_cheiro
+  cheiro_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_cheiro * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(cheiro_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_cheiro_pa <- mask(pred_cheiro, bound)
+  cheiro_2050_pa <- mask(cheiro_2050, bound)
+
+  pa2020_sum <- global(pred_cheiro_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(cheiro_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  cheiro_predictions[i, ] <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+}
+
+cheiro_predictions2 <- data.frame(cheiro_predictions)
+colnames(cheiro_predictions2) <- c("Buffer2020", "Buffer2050", "PA2020", "PA2050")
+
+
+
+cheiro_predictions2$BufferLoss <- 1-cheiro_predictions2$Buffer2050/cheiro_predictions2$Buffer2020
+cheiro_predictions2$PALoss <- 1-cheiro_predictions2$PA2050/cheiro_predictions2$PA2020
+
+cheiro_summary <- cheiro_predictions2 %>% pivot_longer(cols = Buffer2020:PALoss) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+ 
+
+cheiro_summary
+
+
+coefs <- cheiro_coefficients
+
+pred_cheiro <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_cheiro"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_cheiro <- (pred_cheiro)^2
+  pred_cheiro[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  
+  pred_cheiro[pred_cheiro> max(densities_habitat_cheiro$Density_km2)] <- max(densities_habitat_cheiro$Density_km2)
+
+
+  cheiro_2050 <- pred_cheiro
+  cheiro_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_cheiro * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(cheiro_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_cheiro_pa <- mask(pred_cheiro, bound)
+  cheiro_2050_pa <- mask(cheiro_2050, bound)
+
+  pa2020_sum <- global(pred_cheiro_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(cheiro_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  cheiro_prediction <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+
+```
+
+```{r predictions rubri}
+rubri_predictions <- matrix(NA, nrow = 100, ncol = 4)
+
+for (i in 1:100) {
+  coefs <- simulated_coefs_df_rubri[i,]
+
+ pred_rubri <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_rubri"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_rubri <-  pred_rubri^2
+                      
+  pred_rubri[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  pred_rubri[pred_rubri> max(densities_habitat_rubri$Density_km2)] <- max(densities_habitat_rubri$Density_km2)
+
+
+  rubri_2050 <- pred_rubri
+  rubri_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_rubri * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(rubri_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_rubri_pa <- mask(pred_rubri, bound)
+  rubri_2050_pa <- mask(rubri_2050, bound)
+
+  pa2020_sum <- global(pred_rubri_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(rubri_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  rubri_predictions[i, ] <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+}
+
+rubri_predictions2 <- data.frame(rubri_predictions)
+colnames(rubri_predictions2) <- c("Buffer2020", "Buffer2050", "PA2020", "PA2050")
+
+
+rubri_predictions2$BufferLoss <- 1-rubri_predictions2$Buffer2050/rubri_predictions2$Buffer2020
+rubri_predictions2$PALoss <- 1-rubri_predictions2$PA2050/rubri_predictions2$PA2020
+
+rubri_summary <- rubri_predictions2 %>% pivot_longer(cols = Buffer2020:PALoss) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+ 
+
+rubri_summary
+
+
+coefs <- rubri_coefficients
+
+pred_rubri <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_rubri"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_rubri <- (pred_rubri)^2
+  pred_rubri[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  
+  pred_rubri[pred_rubri> max(densities_habitat_rubri$Density_km2)] <- max(densities_habitat_rubri$Density_km2)
+
+
+  rubri_2050 <- pred_rubri
+  rubri_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_rubri * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(rubri_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_rubri_pa <- mask(pred_rubri, bound)
+  rubri_2050_pa <- mask(rubri_2050, bound)
+
+  pa2020_sum <- global(pred_rubri_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(rubri_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  rubri_prediction <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+
+```
+
+```{r predictions hapa}
+hapa_predictions <- matrix(NA, nrow = 100, ncol = 4)
+
+for (i in 1:100) {
+  coefs <- simulated_coefs_df_hapa[i,]
+
+ pred_hapa <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_hapa"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_hapa <-  pred_hapa^2
+                      
+  pred_hapa[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  pred_hapa[pred_hapa> max(densities_habitat_hapa$Density_km2)] <- max(densities_habitat_hapa$Density_km2)
+
+
+  hapa_2050 <- pred_hapa
+  hapa_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_hapa * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(hapa_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_hapa_pa <- mask(pred_hapa, bound)
+  hapa_2050_pa <- mask(hapa_2050, bound)
+
+  pa2020_sum <- global(pred_hapa_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(hapa_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  hapa_predictions[i, ] <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+}
+
+hapa_predictions2 <- data.frame(hapa_predictions)
+colnames(hapa_predictions2) <- c("Buffer2020", "Buffer2050", "PA2020", "PA2050")
+
+
+
+hapa_predictions2$BufferLoss <- 1-hapa_predictions2$Buffer2050/hapa_predictions2$Buffer2020
+hapa_predictions2$PALoss <- 1-hapa_predictions2$PA2050/hapa_predictions2$PA2020
+
+hapa_summary <- hapa_predictions2 %>% pivot_longer(cols = Buffer2020:PALoss) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+ 
+
+hapa_summary
+
+
+coefs <- hapa_coefficients
+
+pred_hapa <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_hapa"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_hapa <- (pred_hapa)^2
+  pred_hapa[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  
+  pred_hapa[pred_hapa> max(densities_habitat_hapa$Density_km2)] <- max(densities_habitat_hapa$Density_km2)
+
+
+  hapa_2050 <- pred_hapa
+  hapa_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_hapa * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(hapa_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_hapa_pa <- mask(pred_hapa, bound)
+  hapa_2050_pa <- mask(hapa_2050, bound)
+
+  pa2020_sum <- global(pred_hapa_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(hapa_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  hapa_prediction <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+
+```
+
+```{r predictions lepi}
+lepi_predictions <- matrix(NA, nrow = 100, ncol = 4)
+
+for (i in 1:100) {
+  coefs <- simulated_coefs_df_lepi[i,]
+
+ pred_lepi <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_lepi"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_lepi <-  pred_lepi^2
+                      
+  pred_lepi[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  pred_lepi[pred_lepi> max(densities_habitat_lepi$Density_km2)] <- max(densities_habitat_lepi$Density_km2)
+
+
+  lepi_2050 <- pred_lepi
+  lepi_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_lepi * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(lepi_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_lepi_pa <- mask(pred_lepi, bound)
+  lepi_2050_pa <- mask(lepi_2050, bound)
+
+  pa2020_sum <- global(pred_lepi_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(lepi_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  lepi_predictions[i, ] <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+}
+
+lepi_predictions2 <- data.frame(lepi_predictions)
+colnames(lepi_predictions2) <- c("Buffer2020", "Buffer2050", "PA2020", "PA2050")
+
+
+
+lepi_predictions2$BufferLoss <- 1-lepi_predictions2$Buffer2050/lepi_predictions2$Buffer2020
+lepi_predictions2$PALoss <- 1-lepi_predictions2$PA2050/lepi_predictions2$PA2020
+
+lepi_summary <- lepi_predictions2 %>% pivot_longer(cols = Buffer2020:PALoss) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+ 
+
+lepi_summary
+
+
+coefs <- lepi_coefficients
+
+pred_lepi <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_lepi"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_lepi <- (pred_lepi)^2
+  pred_lepi[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  
+  pred_lepi[pred_lepi> max(densities_habitat_lepi$Density_km2)] <- max(densities_habitat_lepi$Density_km2)
+
+
+  lepi_2050 <- pred_lepi
+  lepi_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_lepi * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(lepi_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_lepi_pa <- mask(pred_lepi, bound)
+  lepi_2050_pa <- mask(lepi_2050, bound)
+
+  pa2020_sum <- global(pred_lepi_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(lepi_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  lepi_prediction <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+
+
+
+```
+
+```{r predictions avahi}
+avahi_predictions <- matrix(NA, nrow = 100, ncol = 4)
+
+for (i in 1:100) {
+  coefs <- simulated_coefs_df_avahi[i,]
+
+ pred_avahi <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_avahi"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_avahi <-  pred_avahi^2
+                      
+  pred_avahi[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  pred_avahi[pred_avahi> max(densities_habitat_avahi$Density_km2)] <- max(densities_habitat_avahi$Density_km2)
+
+
+  avahi_2050 <- pred_avahi
+  avahi_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_avahi * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(avahi_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_avahi_pa <- mask(pred_avahi, bound)
+  avahi_2050_pa <- mask(avahi_2050, bound)
+
+  pa2020_sum <- global(pred_avahi_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(avahi_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  avahi_predictions[i, ] <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+}
+
+avahi_predictions2 <- data.frame(avahi_predictions)
+colnames(avahi_predictions2) <- c("Buffer2020", "Buffer2050", "PA2020", "PA2050")
+
+
+
+avahi_predictions2$BufferLoss <- 1-avahi_predictions2$Buffer2050/avahi_predictions2$Buffer2020
+avahi_predictions2$PALoss <- 1-avahi_predictions2$PA2050/avahi_predictions2$PA2020
+
+avahi_summary <- avahi_predictions2 %>% pivot_longer(cols = Buffer2020:PALoss) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+ 
+
+avahi_summary
+
+
+coefs <- avahi_coefficients
+
+pred_avahi <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_avahi"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_avahi <- (pred_avahi)^2
+  pred_avahi[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  
+  pred_avahi[pred_avahi> max(densities_habitat_avahi$Density_km2)] <- max(densities_habitat_avahi$Density_km2)
+
+
+  avahi_2050 <- pred_avahi
+  avahi_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_avahi * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(avahi_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_avahi_pa <- mask(pred_avahi, bound)
+  avahi_2050_pa <- mask(avahi_2050, bound)
+
+  pa2020_sum <- global(pred_avahi_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(avahi_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  avahi_prediction <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+
+
+```
+
+```{r predictions micro}
+micro_predictions <- matrix(NA, nrow = 100, ncol = 4)
+
+for (i in 1:100) {
+  coefs <- simulated_coefs_df_micro[i,]
+
+ pred_micro <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_micro"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_micro <-  pred_micro^2
+                      
+  pred_micro[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  pred_micro[pred_micro> max(densities_habitat_micro$Density_km2)] <- max(densities_habitat_micro$Density_km2)
+
+
+  micro_2050 <- pred_micro
+  micro_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_micro * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(micro_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_micro_pa <- mask(pred_micro, bound)
+  micro_2050_pa <- mask(micro_2050, bound)
+
+  pa2020_sum <- global(pred_micro_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(micro_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  micro_predictions[i, ] <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+}
+
+micro_predictions2 <- data.frame(micro_predictions)
+colnames(micro_predictions2) <- c("Buffer2020", "Buffer2050", "PA2020", "PA2050")
+
+
+
+micro_predictions2$BufferLoss <- 1-micro_predictions2$Buffer2050/micro_predictions2$Buffer2020
+micro_predictions2$PALoss <- 1-micro_predictions2$PA2050/micro_predictions2$PA2020
+
+micro_summary <- micro_predictions2 %>% pivot_longer(cols = Buffer2020:PALoss) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+ 
+
+micro_summary
+
+
+coefs <- micro_coefficients
+
+pred_micro <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_micro"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_micro <- (pred_micro)^2
+  pred_micro[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  
+  pred_micro[pred_micro> max(densities_habitat_micro$Density_km2)] <- max(densities_habitat_micro$Density_km2)
+
+
+  micro_2050 <- pred_micro
+  micro_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_micro * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(micro_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_micro_pa <- mask(pred_micro, bound)
+  micro_2050_pa <- mask(micro_2050, bound)
+
+  pa2020_sum <- global(pred_micro_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(micro_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  micro_prediction <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+
+```
+
+```{r predictions allo}
+allo_predictions <- matrix(NA, nrow = 100, ncol = 4)
+
+for (i in 1:100) {
+  coefs <- simulated_coefs_df_allo[i,]
+
+ pred_allo <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_allo"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_allo <-  pred_allo^2
+                      
+  pred_allo[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  pred_allo[pred_allo> max(densities_habitat_allo$Density_km2)] <- max(densities_habitat_allo$Density_km2)
+
+
+  allo_2050 <- pred_allo
+  allo_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_allo * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(allo_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_allo_pa <- mask(pred_allo, bound)
+  allo_2050_pa <- mask(allo_2050, bound)
+
+  pa2020_sum <- global(pred_allo_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(allo_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  allo_predictions[i, ] <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+}
+
+allo_predictions2 <- data.frame(allo_predictions)
+colnames(allo_predictions2) <- c("Buffer2020", "Buffer2050", "PA2020", "PA2050")
+
+
+allo_predictions2$BufferLoss <- 1-allo_predictions2$Buffer2050/allo_predictions2$Buffer2020
+allo_predictions2$PALoss <- 1-allo_predictions2$PA2050/allo_predictions2$PA2020
+
+allo_summary <- allo_predictions2 %>% pivot_longer(cols = Buffer2020:PALoss) %>%
+  group_by(name) %>% summarise(mean = mean(value), median = median(value),
+                               lower = quantile(value, 0.025),
+                               upper = quantile(value, 0.975),
+                               min = min(value), 
+                               max = max(value))
+ 
+
+allo_summary
+
+
+coefs <- allo_coefficients
+
+pred_allo <- (coefs$Ruggedness * stacked_habitat[["Band.1.2"]]) +
+               (coefs$Elevation * stacked_habitat[["Band.1.1"]]) +
+               (coefs$CanopyHeight * stacked_habitat[["Layer_1"]]) +
+               (coefs$ForestLossProp * stacked_habitat[["FLP_allo"]]) +
+               coefs$`(Intercept)`
+ 
+  pred_allo <- (pred_allo)^2
+  pred_allo[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  
+  
+  pred_allo[pred_allo> max(densities_habitat_allo$Density_km2)] <- max(densities_habitat_allo$Density_km2)
+
+
+  allo_2050 <- pred_allo
+  allo_2050[stacked_habitat[["fcc_2050_AFR_aea"]] == 0] <- NA
+
+  buffer2020_sum <- global(pred_allo * cell_area_km2, "sum", na.rm = TRUE)
+  buffer2050_sum <- global(allo_2050 * cell_area_km2, "sum", na.rm = TRUE)
+
+  buffer2020_sum <- median(buffer2020_sum$sum)
+  buffer2050_sum <- buffer2050_sum$sum
+
+  pred_allo_pa <- mask(pred_allo, bound)
+  allo_2050_pa <- mask(allo_2050, bound)
+
+  pa2020_sum <- global(pred_allo_pa * cell_area_km2, "sum", na.rm = TRUE)
+  pa2050_sum <- global(allo_2050_pa * cell_area_km2, "sum", na.rm = TRUE)
+
+  pa2020_sum <- pa2020_sum$sum
+  pa2050_sum <- pa2050_sum$sum
+
+  allo_prediction <- c(buffer2020_sum, buffer2050_sum, pa2020_sum, pa2050_sum)
+
+
+```

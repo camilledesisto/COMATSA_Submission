@@ -1,0 +1,1543 @@
+---
+title: "Untitled"
+author: "TristanFB"
+date: "2025-03-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#README
+#Need to run the first 3 chunks of 04_SpatialPredictions before this to load spatial variables
+#I have commented out the code to write new tables of 1000 randomized values
+#if you dont want to wait to re-run everything 1000 times, just run each chunk up until the loop, skip the loop, and then run the line of code that reads the loop output from a csv file instead of running it again
+
+library(jtools)
+
+cell_area_km2 <- (30/1000) *(30.8/1000)
+cell_area_km <- (30/1000) *(30.8/1000)
+```
+
+```{r scaled prop}
+#get values that will be used to back transform scaled outputs
+prop_FLP_mean <- mean(densities_habitat_prop$ForestLossProp)
+prop_FLP_sd <- sd(densities_habitat_prop$ForestLossProp)
+prop_CanopyHeight_mean <- mean(densities_habitat_prop$CanopyHeight)
+prop_CanopyHeight_sd <- sd(densities_habitat_prop$CanopyHeight)
+prop_Ruggedness_mean <- mean(densities_habitat_prop$Ruggedness)
+prop_Ruggedness_sd <- sd(densities_habitat_prop$Ruggedness)
+prop_Elevation_mean <- mean(densities_habitat_prop$Elevation)
+prop_Elevation_sd <- sd(densities_habitat_prop$Elevation)
+
+#run scaled model to get POINT estimate
+prop_full <- lmer(data = densities_habitat_prop , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+prop_scale <- scale_mod(prop_full)
+
+prop_dredge <- dredge(prop_scale, extra = "R^2")
+prop_model_avg <- model.avg(prop_dredge, fit = TRUE)
+summary_prop_model_avg <- summary(prop_model_avg)
+summary_prop_model_avg
+
+coef_summary_prop <- summary_prop_model_avg$coefmat.full
+importance_prop_model_avg <- sw(prop_model_avg)
+
+prop_coefficients <- as.data.frame(prop_model_avg$coefficients)[1,]
+prop_coefficients <- prop_coefficients[, sort(colnames(prop_coefficients))]
+
+
+coefs <-prop_coefficients
+pred_prop <- ((coefs$Ruggedness[1]/prop_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - prop_Ruggedness_mean)) +
+               ((coefs$Elevation/prop_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - prop_Elevation_mean)) +
+               ((coefs$CanopyHeight/prop_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - prop_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/prop_FLP_sd) * (stacked_habitat[["FLP_prop"]] - prop_FLP_mean))  +
+               coefs$`(Intercept)`
+ 
+pred_prop[pred_prop < 0] <- 0
+pred_prop <-  pred_prop^2
+pred_prop[pred_prop> max(densities_habitat_prop$Density_km2)] <- max(densities_habitat_prop$Density_km2)
+
+#start masking output to get values for forest in 2020 and 2050, in PA bound and PA + buffer area
+prop_pred <- pred_prop
+prop_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+prop_pred <- mask(prop_pred, buffer)
+  
+stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+prop_2050 <- pred_prop
+prop_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+prop_2050 <- mask(prop_2050, buffer)
+  
+prop_pred_pa <- mask(prop_pred, bound)
+prop_2050_pa <- mask(prop_2050, bound)
+
+prop_map_2020 <- prop_pred
+prop_map_2050 <- prop_2050
+
+prop_pred <- na.omit(prop_pred@data@values)
+prop_pred_sum <- sum(prop_pred)*cell_area_km
+  
+prop_pred_pa <- na.omit(prop_pred_pa@data@values)
+prop_pred_pa_sum <- sum(prop_pred_pa)*cell_area_km
+  
+prop_2050 <- na.omit(prop_2050@data@values)
+prop_2050_sum <- sum(prop_2050)*cell_area_km
+  
+prop_2050_pa <- na.omit(prop_2050_pa@data@values)
+prop_2050_pa_sum <- sum(prop_2050_pa)*cell_area_km
+
+#OUR MAIN POINT ESTIMATES
+prop_pointestimates <- c(prop_pred_sum, prop_pred_pa_sum, prop_2050_sum, prop_2050_pa_sum)
+ 
+
+##Manually writing out the values for each scaled model coefficients because I could not find a way to automatically get the sd's
+coef_Intercept_prop<-  rnorm(1000, mean=0.95302, sd=0.47975)
+coef_FLP_prop<-  rnorm(1000, mean=0.13262 , sd=0.33673 )
+coef_CH_prop<-  rnorm(1000, mean=0.51308, sd=0.58246)
+coef_Rug_prop<-  rnorm(1000, mean=0.02405, sd=0.33673)
+coef_Elev_prop<-  rnorm(1000, mean=-0.18010  , sd=0.23312)
+
+coefs_prop_test <- data.frame(Intercept=coef_Intercept_prop,ForestLossProp=coef_FLP_prop, CanopyHeight=coef_CH_prop, Ruggedness = coef_Rug_prop, Elevation=coef_Elev_prop)
+
+#Loop Time!
+prop_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
+ 
+  coefs <-coefs_prop_test[i,]
+
+ pred_prop <- ((coefs$Ruggedness[1]/prop_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - prop_Ruggedness_mean)) +
+               ((coefs$Elevation/prop_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - prop_Elevation_mean)) +
+               ((coefs$CanopyHeight/prop_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - prop_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/prop_FLP_sd) * (stacked_habitat[["FLP_prop"]] - prop_FLP_mean))  +
+               coefs$Intercept
+ 
+  pred_prop[pred_prop < 0] <- 0
+  pred_prop <-  pred_prop^2
+  pred_prop[pred_prop> max(densities_habitat_prop$Density_km2)] <- max(densities_habitat_prop$Density_km2)
+  
+  prop_pred <- pred_prop
+  prop_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  prop_pred <- mask(prop_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  prop_2050 <- pred_prop
+  prop_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  prop_2050 <- mask(prop_2050, buffer)
+  
+  prop_pred_pa <- mask(prop_pred, bound)
+  prop_2050_pa <- mask(prop_2050, bound)
+
+  prop_pred <- na.omit(prop_pred@data@values)
+  prop_pred_sum <- sum(prop_pred)*cell_area_km
+  
+  prop_pred_pa <- na.omit(prop_pred_pa@data@values)
+  prop_pred_pa_sum <- sum(prop_pred_pa)*cell_area_km
+  
+  prop_2050 <- na.omit(prop_2050@data@values)
+  prop_2050_sum <- sum(prop_2050)*cell_area_km
+  
+  prop_2050_pa <- na.omit(prop_2050_pa@data@values)
+  prop_2050_pa_sum <- sum(prop_2050_pa)*cell_area_km
+
+  prop_predictions[i, ] <- c(prop_pred_sum, prop_pred_pa_sum, prop_2050_sum, prop_2050_pa_sum)
+}
+
+prop_predictions
+prop_predictions2 <- data.frame(prop_predictions)
+colnames(prop_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
+
+#write.csv(prop_predictions2 ,"prop_predictions2.csv")
+prop_predictions2 <- read.csv("prop_predictions2.csv")
+
+ggplot(prop_predictions2, aes(x=PA2020)) + ggtitle("Prop")+ 
+  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=prop_pointestimates[2] ),
+            color="blue", size=1)+
+  geom_vline(aes(xintercept=mean(na.omit(prop_predictions2$PA2020)) ),
+            color="black", size=1)+
+  geom_vline(aes(xintercept=median(na.omit(prop_predictions2$PA2020)) ),
+            color="black", linetype="dashed", size=1)
+
+
+```
+  
+```{r scaled rubri}
+rubri_FLP_mean <- mean(densities_habitat_rubri$ForestLossProp)
+rubri_FLP_sd <- sd(densities_habitat_rubri$ForestLossProp)
+rubri_CanopyHeight_mean <- mean(densities_habitat_rubri$CanopyHeight)
+rubri_CanopyHeight_sd <- sd(densities_habitat_rubri$CanopyHeight)
+rubri_Ruggedness_mean <- mean(densities_habitat_rubri$Ruggedness)
+rubri_Ruggedness_sd <- sd(densities_habitat_rubri$Ruggedness)
+rubri_Elevation_mean <- mean(densities_habitat_rubri$Elevation)
+rubri_Elevation_sd <- sd(densities_habitat_rubri$Elevation)
+
+rubri_full <- lmer(data = densities_habitat_rubri , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+rubri_scale <- scale_mod(rubri_full)
+
+rubri_dredge <- dredge(rubri_scale, extra = "R^2")
+rubri_model_avg <- model.avg(rubri_dredge, fit = TRUE)
+summary_rubri_model_avg <- summary(rubri_model_avg)
+summary_rubri_model_avg
+coef_summary_rubri <- summary_rubri_model_avg$coefmat.full
+
+importance_rubri_model_avg <- sw(rubri_model_avg)
+
+rubri_coefficients <- as.data.frame(rubri_model_avg$coefficients)[1,]
+rubri_coefficients <- rubri_coefficients[, sort(colnames(rubri_coefficients))]
+
+#point estimate
+
+  coefs <-rubri_coefficients
+
+ pred_rubri <- ((coefs$Ruggedness[1]/rubri_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - rubri_Ruggedness_mean)) +
+               ((coefs$Elevation/rubri_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - rubri_Elevation_mean)) +
+               ((coefs$CanopyHeight/rubri_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - rubri_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/rubri_FLP_sd) * (stacked_habitat[["FLP_rubri"]] - rubri_FLP_mean))  +
+               coefs$`(Intercept)`
+ 
+ pred_rubri[pred_rubri < 0] <- 0
+ 
+  pred_rubri <-  pred_rubri^2
+  pred_rubri[pred_rubri> max(densities_habitat_rubri$Density_km2)] <- max(densities_habitat_rubri$Density_km2)
+  
+  rubri_pred <- pred_rubri
+  rubri_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  rubri_pred <- mask(rubri_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  rubri_2050 <- pred_rubri
+  rubri_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  rubri_2050 <- mask(rubri_2050, buffer)
+  
+  rubri_pred_pa <- mask(rubri_pred, bound)
+  rubri_2050_pa <- mask(rubri_2050, bound)
+  
+  rubri_map_2020 <- rubri_pred
+  rubri_map_2050 <- rubri_2050
+
+  rubri_pred <- na.omit(rubri_pred@data@values)
+  rubri_pred_sum <- sum(rubri_pred)*cell_area_km
+  
+  rubri_pred_pa <- na.omit(rubri_pred_pa@data@values)
+  rubri_pred_pa_sum <- sum(rubri_pred_pa)*cell_area_km
+  
+  rubri_2050 <- na.omit(rubri_2050@data@values)
+  rubri_2050_sum <- sum(rubri_2050)*cell_area_km
+  
+  rubri_2050_pa <- na.omit(rubri_2050_pa@data@values)
+  rubri_2050_pa_sum <- sum(rubri_2050_pa)*cell_area_km
+
+
+  rubri_pointestimates <- c(rubri_pred_sum, rubri_pred_pa_sum, rubri_2050_sum, rubri_2050_pa_sum)
+ 
+
+
+
+##loop not loop
+coef_Intercept_rubri<-  rnorm(1000, mean=1.62275 , sd=0.63366)
+coef_FLP_rubri<-  rnorm(1000, mean=0.77366  , sd=0.71571 )
+coef_CH_rubri<-  rnorm(1000, mean=0.07271, sd=0.39419)
+coef_Rug_rubri<-  rnorm(1000, mean=0.08239 , sd=0.36227)
+coef_Elev_rubri<-  rnorm(1000, mean=0.06248 , sd=0.33894)
+
+
+coefs_rubri_test <- data.frame(Intercept=coef_Intercept_rubri,ForestLossProp=coef_FLP_rubri, CanopyHeight=coef_CH_rubri, Ruggedness = coef_Rug_rubri, Elevation=coef_Elev_rubri)
+
+
+rubri_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
+ 
+  coefs <-coefs_rubri_test[i,]
+
+ pred_rubri <- ((coefs$Ruggedness[1]/rubri_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - rubri_Ruggedness_mean)) +
+               ((coefs$Elevation/rubri_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - rubri_Elevation_mean)) +
+               ((coefs$CanopyHeight/rubri_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - rubri_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/rubri_FLP_sd) * (stacked_habitat[["FLP_rubri"]] - rubri_FLP_mean))  +
+               coefs$Intercept
+ 
+ pred_rubri[pred_rubri < 0] <- 0
+ 
+  pred_rubri <-  pred_rubri^2
+  pred_rubri[pred_rubri> max(densities_habitat_rubri$Density_km2)] <- max(densities_habitat_rubri$Density_km2)
+  
+  rubri_pred <- pred_rubri
+  rubri_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  rubri_pred <- mask(rubri_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  rubri_2050 <- pred_rubri
+  rubri_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  rubri_2050 <- mask(rubri_2050, buffer)
+  
+  rubri_pred_pa <- mask(rubri_pred, bound)
+  rubri_2050_pa <- mask(rubri_2050, bound)
+
+  rubri_pred <- na.omit(rubri_pred@data@values)
+  rubri_pred_sum <- sum(rubri_pred)*cell_area_km
+  
+  rubri_pred_pa <- na.omit(rubri_pred_pa@data@values)
+  rubri_pred_pa_sum <- sum(rubri_pred_pa)*cell_area_km
+  
+  rubri_2050 <- na.omit(rubri_2050@data@values)
+  rubri_2050_sum <- sum(rubri_2050)*cell_area_km
+  
+  rubri_2050_pa <- na.omit(rubri_2050_pa@data@values)
+  rubri_2050_pa_sum <- sum(rubri_2050_pa)*cell_area_km
+
+
+  rubri_predictions[i, ] <- c(rubri_pred_sum, rubri_pred_pa_sum, rubri_2050_sum, rubri_2050_pa_sum)
+  
+}
+
+rubri_predictions2 <- data.frame(rubri_predictions)
+colnames(rubri_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
+
+#write.csv(rubri_predictions2 ,"rubri_predictions2.csv")
+rubri_predictions2 <- read.csv("rubri_predictions2.csv")
+
+ggplot(rubri_predictions2, aes(x=PA2020)) + 
+  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=rubri_pointestimates[2] ),
+            color="blue", size=1)+ggtitle("Rubri")+ 
+  geom_vline(aes(xintercept=mean(na.omit(rubri_predictions2$PA2020)) ),
+            color="black", size=1)+
+  geom_vline(aes(xintercept=median(na.omit(rubri_predictions2$PA2020)) ),
+            color="black", linetype="dashed", size=1)
+
+
+```
+  
+```{r scaled albi}
+albi_FLP_mean <- mean(densities_habitat_albi$ForestLossProp)
+albi_FLP_sd <- sd(densities_habitat_albi$ForestLossProp)
+albi_CanopyHeight_mean <- mean(densities_habitat_albi$CanopyHeight)
+albi_CanopyHeight_sd <- sd(densities_habitat_albi$CanopyHeight)
+albi_Ruggedness_mean <- mean(densities_habitat_albi$Ruggedness)
+albi_Ruggedness_sd <- sd(densities_habitat_albi$Ruggedness)
+albi_Elevation_mean <- mean(densities_habitat_albi$Elevation)
+albi_Elevation_sd <- sd(densities_habitat_albi$Elevation)
+
+albi_full <- lmer(data = densities_habitat_albi , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+albi_scale <- scale_mod(albi_full)
+
+albi_dredge <- dredge(albi_scale, extra = "R^2")
+albi_model_avg <- model.avg(albi_dredge, fit = TRUE)
+summary_albi_model_avg <- summary(albi_model_avg)
+summary_albi_model_avg
+
+coef_summary_albi <- summary_albi_model_avg$coefmat.full
+importance_albi_model_avg <- sw(albi_model_avg)
+
+albi_coefficients <- as.data.frame(albi_model_avg$coefficients)[1,]
+albi_coefficients <- albi_coefficients[, sort(colnames(albi_coefficients))]
+
+#point estimate
+
+  coefs <-albi_coefficients
+
+ pred_albi <- ((coefs$Ruggedness[1]/albi_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - albi_Ruggedness_mean)) +
+               ((coefs$Elevation/albi_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - albi_Elevation_mean)) +
+               ((coefs$CanopyHeight/albi_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - albi_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/albi_FLP_sd) * (stacked_habitat[["FLP_albi"]] - albi_FLP_mean))  +
+               coefs$`(Intercept)`
+ 
+ pred_albi[pred_albi < 0] <- 0
+ 
+  pred_albi <-  pred_albi^2
+  pred_albi[pred_albi> max(densities_habitat_albi$Density_km2)] <- max(densities_habitat_albi$Density_km2)
+  
+  albi_pred <- pred_albi
+  albi_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  albi_pred <- mask(albi_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  albi_2050 <- pred_albi
+  albi_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  albi_2050 <- mask(albi_2050, buffer)
+  
+  albi_pred_pa <- mask(albi_pred, bound)
+  albi_2050_pa <- mask(albi_2050, bound)
+  
+  albi_map_2020 <- albi_pred
+  albi_map_2050 <- albi_2050
+
+  albi_pred <- na.omit(albi_pred@data@values)
+  albi_pred_sum <- sum(albi_pred)*cell_area_km
+  
+  albi_pred_pa <- na.omit(albi_pred_pa@data@values)
+  albi_pred_pa_sum <- sum(albi_pred_pa)*cell_area_km
+  
+  albi_2050 <- na.omit(albi_2050@data@values)
+  albi_2050_sum <- sum(albi_2050)*cell_area_km
+  
+  albi_2050_pa <- na.omit(albi_2050_pa@data@values)
+  albi_2050_pa_sum <- sum(albi_2050_pa)*cell_area_km
+
+
+  albi_pointestimates <- c(albi_pred_sum, albi_pred_pa_sum, albi_2050_sum, albi_2050_pa_sum)
+ 
+
+
+
+##loop not loop
+coef_Intercept_albi<-  rnorm(1000, mean=2.1755, sd=0.8327)
+coef_FLP_albi<-  rnorm(1000, mean=-0.02962   , sd=0.36228  )
+coef_CH_albi<-  rnorm(1000, mean=0.19279 , sd= 0.48082  )
+coef_Rug_albi<-  rnorm(1000, mean= 0.06829  , sd=0.43583 )
+coef_Elev_albi<-  rnorm(1000, mean=0.69973  , sd=0.78580)
+
+
+coefs_albi_test <- data.frame(Intercept=coef_Intercept_albi,ForestLossProp=coef_FLP_albi, CanopyHeight=coef_CH_albi, Ruggedness = coef_Rug_albi, Elevation=coef_Elev_albi)
+
+
+albi_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
+ 
+  coefs <-coefs_albi_test[i,]
+
+ pred_albi <- ((coefs$Ruggedness[1]/albi_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - albi_Ruggedness_mean)) +
+               ((coefs$Elevation/albi_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - albi_Elevation_mean)) +
+               ((coefs$CanopyHeight/albi_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - albi_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/albi_FLP_sd) * (stacked_habitat[["FLP_albi"]] - albi_FLP_mean))  +
+               coefs$Intercept
+ 
+ pred_albi[pred_albi < 0] <- 0
+ 
+  pred_albi <-  pred_albi^2
+  pred_albi[pred_albi> max(densities_habitat_albi$Density_km2)] <- max(densities_habitat_albi$Density_km2)
+  
+  albi_pred <- pred_albi
+  albi_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  albi_pred <- mask(albi_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  albi_2050 <- pred_albi
+  albi_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  albi_2050 <- mask(albi_2050, buffer)
+  
+  albi_pred_pa <- mask(albi_pred, bound)
+  albi_2050_pa <- mask(albi_2050, bound)
+
+  albi_pred <- na.omit(albi_pred@data@values)
+  albi_pred_sum <- sum(albi_pred)*cell_area_km
+  
+  albi_pred_pa <- na.omit(albi_pred_pa@data@values)
+  albi_pred_pa_sum <- sum(albi_pred_pa)*cell_area_km
+  
+  albi_2050 <- na.omit(albi_2050@data@values)
+  albi_2050_sum <- sum(albi_2050)*cell_area_km
+  
+  albi_2050_pa <- na.omit(albi_2050_pa@data@values)
+  albi_2050_pa_sum <- sum(albi_2050_pa)*cell_area_km
+
+
+  albi_predictions[i, ] <- c(albi_pred_sum, albi_pred_pa_sum, albi_2050_sum, albi_2050_pa_sum)
+  
+}
+
+
+albi_predictions2 <- data.frame(albi_predictions)
+colnames(albi_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
+
+#write.csv(albi_predictions2 ,"albi_predictions2.csv")
+albi_predictions2 <- read.csv("albi_predictions2.csv")
+
+ggplot(albi_predictions2, aes(x=PA2020)) + ggtitle("Albi") +
+  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=albi_pointestimates[2] ),
+            color="blue", size=1)+
+  geom_vline(aes(xintercept=mean(na.omit(albi_predictions2$PA2020)) ),
+            color="black", size=1)+
+  geom_vline(aes(xintercept=median(na.omit(albi_predictions2$PA2020)) ),
+            color="black", linetype="dashed", size=1)
+
+
+```
+  
+```{r scaled cheiro}
+densities_habitat_cheiro <- densities_habitat[densities_habitat$Species=="Cheirogaleus_crossleyi",]
+densities_habitat_cheiro <- densities_habitat_cheiro %>% drop_na()
+
+cheiro_FLP_mean <- mean(densities_habitat_cheiro$ForestLossProp)
+cheiro_FLP_sd <- sd(densities_habitat_cheiro$ForestLossProp)
+cheiro_CanopyHeight_mean <- mean(densities_habitat_cheiro$CanopyHeight)
+cheiro_CanopyHeight_sd <- sd(densities_habitat_cheiro$CanopyHeight)
+cheiro_Ruggedness_mean <- mean(densities_habitat_cheiro$Ruggedness)
+cheiro_Ruggedness_sd <- sd(densities_habitat_cheiro$Ruggedness)
+cheiro_Elevation_mean <- mean(densities_habitat_cheiro$Elevation)
+cheiro_Elevation_sd <- sd(densities_habitat_cheiro$Elevation)
+
+cheiro_full <- lmer(data = densities_habitat_cheiro , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+cheiro_scale <- scale_mod(cheiro_full)
+
+cheiro_dredge <- dredge(cheiro_scale, extra = "R^2")
+cheiro_model_avg <- model.avg(cheiro_dredge, fit = TRUE)
+summary_cheiro_model_avg <- summary(cheiro_model_avg)
+summary_cheiro_model_avg
+importance_cheiro_model_avg <- sw(cheiro_model_avg)
+
+coef_summary_cheiro <- summary_cheiro_model_avg$coefmat.full
+
+cheiro_coefficients <- as.data.frame(cheiro_model_avg$coefficients)[1,]
+cheiro_coefficients <- cheiro_coefficients[, sort(colnames(cheiro_coefficients))]
+
+#point estimate
+
+  coefs <-cheiro_coefficients
+
+ pred_cheiro <- ((coefs$Ruggedness[1]/cheiro_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - cheiro_Ruggedness_mean)) +
+               ((coefs$Elevation/cheiro_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - cheiro_Elevation_mean)) +
+               ((coefs$CanopyHeight/cheiro_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - cheiro_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/cheiro_FLP_sd) * (stacked_habitat[["FLP_cheiro"]] - cheiro_FLP_mean))  +
+               coefs$`(Intercept)`
+ 
+ pred_cheiro[pred_cheiro < 0] <- 0
+ 
+  pred_cheiro <-  pred_cheiro^2
+  pred_cheiro[pred_cheiro> max(densities_habitat_cheiro$Density_km2)] <- max(densities_habitat_cheiro$Density_km2)
+  
+  cheiro_pred <- pred_cheiro
+  cheiro_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  cheiro_pred <- mask(cheiro_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  cheiro_2050 <- pred_cheiro
+  cheiro_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  cheiro_2050 <- mask(cheiro_2050, buffer)
+  
+  cheiro_pred_pa <- mask(cheiro_pred, bound)
+  cheiro_2050_pa <- mask(cheiro_2050, bound)
+
+  cheiro_map_2020 <- cheiro_pred
+  cheiro_map_2050 <- cheiro_2050
+  
+  cheiro_pred <- na.omit(cheiro_pred@data@values)
+  cheiro_pred_sum <- sum(cheiro_pred)*cell_area_km
+  
+  cheiro_pred_pa <- na.omit(cheiro_pred_pa@data@values)
+  cheiro_pred_pa_sum <- sum(cheiro_pred_pa)*cell_area_km
+  
+  cheiro_2050 <- na.omit(cheiro_2050@data@values)
+  cheiro_2050_sum <- sum(cheiro_2050)*cell_area_km
+  
+  cheiro_2050_pa <- na.omit(cheiro_2050_pa@data@values)
+  cheiro_2050_pa_sum <- sum(cheiro_2050_pa)*cell_area_km
+
+
+  cheiro_pointestimates <- c(cheiro_pred_sum, cheiro_pred_pa_sum, cheiro_2050_sum, cheiro_2050_pa_sum)
+ 
+
+
+
+##loop not loop
+coef_Intercept_cheiro<-  rnorm(1000, mean=12.37784, sd=0.87615)
+coef_FLP_cheiro<-  rnorm(1000, mean=0.32764 , sd=0.69073 )
+coef_CH_cheiro<-  rnorm(1000, mean=-0.32102, sd=0.67430 )
+coef_Rug_cheiro<-  rnorm(1000, mean=-0.46707, sd=0.78391)
+coef_Elev_cheiro<-  rnorm(1000, mean=-0.01926  , sd=0.50870 )
+
+
+coefs_cheiro_test <- data.frame(Intercept=coef_Intercept_cheiro,ForestLossProp=coef_FLP_cheiro, CanopyHeight=coef_CH_cheiro, Ruggedness = coef_Rug_cheiro, Elevation=coef_Elev_cheiro)
+
+
+cheiro_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
+ 
+  coefs <-coefs_cheiro_test[i,]
+
+ pred_cheiro <- ((coefs$Ruggedness[1]/cheiro_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - cheiro_Ruggedness_mean)) +
+               ((coefs$Elevation/cheiro_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - cheiro_Elevation_mean)) +
+               ((coefs$CanopyHeight/cheiro_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - cheiro_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/cheiro_FLP_sd) * (stacked_habitat[["FLP_cheiro"]] - cheiro_FLP_mean))  +
+               coefs$Intercept
+ 
+ pred_cheiro[pred_cheiro < 0] <- 0
+ 
+  pred_cheiro <-  pred_cheiro^2
+  pred_cheiro[pred_cheiro> max(densities_habitat_cheiro$Density_km2)] <- max(densities_habitat_cheiro$Density_km2)
+  
+  cheiro_pred <- pred_cheiro
+  cheiro_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  cheiro_pred <- mask(cheiro_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  cheiro_2050 <- pred_cheiro
+  cheiro_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  cheiro_2050 <- mask(cheiro_2050, buffer)
+  
+  cheiro_pred_pa <- mask(cheiro_pred, bound)
+  cheiro_2050_pa <- mask(cheiro_2050, bound)
+
+  cheiro_pred <- na.omit(cheiro_pred@data@values)
+  cheiro_pred_sum <- sum(cheiro_pred)*cell_area_km
+  
+  cheiro_pred_pa <- na.omit(cheiro_pred_pa@data@values)
+  cheiro_pred_pa_sum <- sum(cheiro_pred_pa)*cell_area_km
+  
+  cheiro_2050 <- na.omit(cheiro_2050@data@values)
+  cheiro_2050_sum <- sum(cheiro_2050)*cell_area_km
+  
+  cheiro_2050_pa <- na.omit(cheiro_2050_pa@data@values)
+  cheiro_2050_pa_sum <- sum(cheiro_2050_pa)*cell_area_km
+
+
+  cheiro_predictions[i, ] <- c(cheiro_pred_sum, cheiro_pred_pa_sum, cheiro_2050_sum, cheiro_2050_pa_sum)
+  
+}
+
+
+cheiro_predictions2 <- data.frame(cheiro_predictions)
+colnames(cheiro_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
+
+#write.csv(cheiro_predictions2 ,"cheiro_predictions2.csv")
+cheiro_predictions2 <- read.csv("cheiro_predictions2.csv")
+
+ggplot(cheiro_predictions2, aes(x=PA2020)) + ggtitle("Cheiro")+
+  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=cheiro_pointestimates[2] ),
+            color="blue", size=1)+
+  geom_vline(aes(xintercept=mean(na.omit(cheiro_predictions2$PA2020)) ),
+            color="black", size=1)+
+  geom_vline(aes(xintercept=median(na.omit(cheiro_predictions2$PA2020)) ),
+            color="black", linetype="dashed", size=1)
+
+
+```
+ 
+```{r scaled micro}
+micro_FLP_mean <- mean(densities_habitat_micro$ForestLossProp)
+micro_FLP_sd <- sd(densities_habitat_micro$ForestLossProp)
+micro_CanopyHeight_mean <- mean(densities_habitat_micro$CanopyHeight)
+micro_CanopyHeight_sd <- sd(densities_habitat_micro$CanopyHeight)
+micro_Ruggedness_mean <- mean(densities_habitat_micro$Ruggedness)
+micro_Ruggedness_sd <- sd(densities_habitat_micro$Ruggedness)
+micro_Elevation_mean <- mean(densities_habitat_micro$Elevation)
+micro_Elevation_sd <- sd(densities_habitat_micro$Elevation)
+
+micro_full <- lmer(data = densities_habitat_micro , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+micro_scale <- scale_mod(micro_full)
+
+micro_dredge <- dredge(micro_scale, extra = "R^2")
+micro_model_avg <- model.avg(micro_dredge, fit = TRUE)
+summary_micro_model_avg <- summary(micro_model_avg)
+summary_micro_model_avg
+
+coef_summary_micro <- summary_micro_model_avg$coefmat.full
+importance_micro_model_avg <- sw(micro_model_avg)
+
+micro_coefficients <- as.data.frame(micro_model_avg$coefficients)[1,]
+micro_coefficients <- micro_coefficients[, sort(colnames(micro_coefficients))]
+
+#point estimate
+
+  coefs <-micro_coefficients
+
+ pred_micro <- ((coefs$Ruggedness[1]/micro_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - micro_Ruggedness_mean)) +
+               ((coefs$Elevation/micro_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - micro_Elevation_mean)) +
+               ((coefs$CanopyHeight/micro_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - micro_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/micro_FLP_sd) * (stacked_habitat[["FLP_micro"]] - micro_FLP_mean))  +
+               coefs$`(Intercept)`
+ 
+ pred_micro[pred_micro < 0] <- 0
+ 
+  pred_micro <-  pred_micro^2
+  pred_micro[pred_micro> max(densities_habitat_micro$Density_km2)] <- max(densities_habitat_micro$Density_km2)
+  
+  micro_pred <- pred_micro
+  micro_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  micro_pred <- mask(micro_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  micro_2050 <- pred_micro
+  micro_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  micro_2050 <- mask(micro_2050, buffer)
+  
+  micro_pred_pa <- mask(micro_pred, bound)
+  micro_2050_pa <- mask(micro_2050, bound)
+  
+  micro_map_2020 <- micro_pred
+micro_map_2050 <- micro_2050
+
+  micro_pred <- na.omit(micro_pred@data@values)
+  micro_pred_sum <- sum(micro_pred)*cell_area_km
+  
+  micro_pred_pa <- na.omit(micro_pred_pa@data@values)
+  micro_pred_pa_sum <- sum(micro_pred_pa)*cell_area_km
+  
+  micro_2050 <- na.omit(micro_2050@data@values)
+  micro_2050_sum <- sum(micro_2050)*cell_area_km
+  
+  micro_2050_pa <- na.omit(micro_2050_pa@data@values)
+  micro_2050_pa_sum <- sum(micro_2050_pa)*cell_area_km
+
+
+  micro_pointestimates <- c(micro_pred_sum, micro_pred_pa_sum, micro_2050_sum, micro_2050_pa_sum)
+ 
+
+
+
+##loop not loop
+coef_Intercept_micro<-  rnorm(1000, mean=8.79287 , sd=1.03886)
+coef_FLP_micro<-  rnorm(1000, mean=0.12078 , sd=0.52105  )
+coef_CH_micro<-  rnorm(1000, mean=-0.49127, sd=0.77816)
+coef_Rug_micro<-  rnorm(1000, mean=-0.02609, sd=0.54759 )
+coef_Elev_micro<-  rnorm(1000, mean=0.58976  , sd=0.85575)
+
+
+coefs_micro_test <- data.frame(Intercept=coef_Intercept_micro,ForestLossProp=coef_FLP_micro, CanopyHeight=coef_CH_micro, Ruggedness = coef_Rug_micro, Elevation=coef_Elev_micro)
+
+
+micro_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
+ 
+  coefs <-coefs_micro_test[i,]
+
+ pred_micro <- ((coefs$Ruggedness[1]/micro_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - micro_Ruggedness_mean)) +
+               ((coefs$Elevation/micro_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - micro_Elevation_mean)) +
+               ((coefs$CanopyHeight/micro_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - micro_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/micro_FLP_sd) * (stacked_habitat[["FLP_micro"]] - micro_FLP_mean))  +
+               coefs$Intercept
+ 
+ pred_micro[pred_micro < 0] <- 0
+ 
+  pred_micro <-  pred_micro^2
+  pred_micro[pred_micro> max(densities_habitat_micro$Density_km2)] <- max(densities_habitat_micro$Density_km2)
+  
+  micro_pred <- pred_micro
+  micro_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  micro_pred <- mask(micro_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  micro_2050 <- pred_micro
+  micro_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  micro_2050 <- mask(micro_2050, buffer)
+  
+  micro_pred_pa <- mask(micro_pred, bound)
+  micro_2050_pa <- mask(micro_2050, bound)
+
+  micro_pred <- na.omit(micro_pred@data@values)
+  micro_pred_sum <- sum(micro_pred)*cell_area_km
+  
+  micro_pred_pa <- na.omit(micro_pred_pa@data@values)
+  micro_pred_pa_sum <- sum(micro_pred_pa)*cell_area_km
+  
+  micro_2050 <- na.omit(micro_2050@data@values)
+  micro_2050_sum <- sum(micro_2050)*cell_area_km
+  
+  micro_2050_pa <- na.omit(micro_2050_pa@data@values)
+  micro_2050_pa_sum <- sum(micro_2050_pa)*cell_area_km
+
+
+  micro_predictions[i, ] <- c(micro_pred_sum, micro_pred_pa_sum, micro_2050_sum, micro_2050_pa_sum)
+  
+}
+
+
+micro_predictions2 <- data.frame(micro_predictions)
+colnames(micro_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
+
+#write.csv(micro_predictions2 ,"micro_predictions2.csv")
+micro_predictions2 <- read.csv("micro_predictions2.csv")
+
+ggplot(micro_predictions2, aes(x=PA2020)) + ggtitle("Micro")+
+  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=micro_pointestimates[2] ),
+            color="blue", size=1)+
+  geom_vline(aes(xintercept=mean(na.omit(micro_predictions2$PA2020)) ),
+            color="black", size=1)+
+  geom_vline(aes(xintercept=median(na.omit(micro_predictions2$PA2020)) ),
+            color="black", linetype="dashed", size=1)
+
+
+```
+
+```{r scaled lepi}
+lepi_FLP_mean <- mean(densities_habitat_lepi$ForestLossProp)
+lepi_FLP_sd <- sd(densities_habitat_lepi$ForestLossProp)
+lepi_CanopyHeight_mean <- mean(densities_habitat_lepi$CanopyHeight)
+lepi_CanopyHeight_sd <- sd(densities_habitat_lepi$CanopyHeight)
+lepi_Ruggedness_mean <- mean(densities_habitat_lepi$Ruggedness)
+lepi_Ruggedness_sd <- sd(densities_habitat_lepi$Ruggedness)
+lepi_Elevation_mean <- mean(densities_habitat_lepi$Elevation)
+lepi_Elevation_sd <- sd(densities_habitat_lepi$Elevation)
+
+lepi_full <- lmer(data = densities_habitat_lepi , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+lepi_scale <- scale_mod(lepi_full)
+
+lepi_dredge <- dredge(lepi_scale, extra = "R^2")
+lepi_model_avg <- model.avg(lepi_dredge, fit = TRUE)
+summary_lepi_model_avg <- summary(lepi_model_avg)
+summary_lepi_model_avg
+
+coef_summary_lepi <- summary_lepi_model_avg$coefmat.full
+importance_lepi_model_avg <- sw(lepi_model_avg)
+
+lepi_coefficients <- as.data.frame(lepi_model_avg$coefficients)[1,]
+lepi_coefficients <- lepi_coefficients[, sort(colnames(lepi_coefficients))]
+
+#point estimate
+
+  coefs <-lepi_coefficients
+
+ pred_lepi <- ((coefs$Ruggedness[1]/lepi_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - lepi_Ruggedness_mean)) +
+               ((coefs$Elevation/lepi_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - lepi_Elevation_mean)) +
+               ((coefs$CanopyHeight/lepi_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - lepi_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/lepi_FLP_sd) * (stacked_habitat[["FLP_lepi"]] - lepi_FLP_mean))  +
+               coefs$`(Intercept)`
+ 
+ pred_lepi[pred_lepi < 0] <- 0
+ 
+  pred_lepi <-  pred_lepi^2
+  pred_lepi[pred_lepi> max(densities_habitat_lepi$Density_km2)] <- max(densities_habitat_lepi$Density_km2)
+  
+  lepi_pred <- pred_lepi
+  lepi_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  lepi_pred <- mask(lepi_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  lepi_2050 <- pred_lepi
+  lepi_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  lepi_2050 <- mask(lepi_2050, buffer)
+  
+  lepi_pred_pa <- mask(lepi_pred, bound)
+  lepi_2050_pa <- mask(lepi_2050, bound)
+
+  lepi_map_2020 <- lepi_pred
+lepi_map_2050 <- lepi_2050
+  
+  lepi_pred <- na.omit(lepi_pred@data@values)
+  lepi_pred_sum <- sum(lepi_pred)*cell_area_km
+  
+  lepi_pred_pa <- na.omit(lepi_pred_pa@data@values)
+  lepi_pred_pa_sum <- sum(lepi_pred_pa)*cell_area_km
+  
+  lepi_2050 <- na.omit(lepi_2050@data@values)
+  lepi_2050_sum <- sum(lepi_2050)*cell_area_km
+  
+  lepi_2050_pa <- na.omit(lepi_2050_pa@data@values)
+  lepi_2050_pa_sum <- sum(lepi_2050_pa)*cell_area_km
+
+
+  lepi_pointestimates <- c(lepi_pred_sum, lepi_pred_pa_sum, lepi_2050_sum, lepi_2050_pa_sum)
+ 
+
+
+
+##loop not loop
+coef_Intercept_lepi<-  rnorm(1000, mean=5.16018, sd=1.09044)
+coef_FLP_lepi<-  rnorm(1000, mean=0.06081 , sd=0.24297 )
+coef_CH_lepi<-  rnorm(1000, mean=0.35827, sd=0.49973)
+coef_Rug_lepi<-  rnorm(1000, mean=-0.39048, sd=0.57154)
+coef_Elev_lepi<-  rnorm(1000, mean=-0.17120  , sd=0.38514 )
+
+
+coefs_lepi_test <- data.frame(Intercept=coef_Intercept_lepi,ForestLossProp=coef_FLP_lepi, CanopyHeight=coef_CH_lepi, Ruggedness = coef_Rug_lepi, Elevation=coef_Elev_lepi)
+
+
+lepi_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
+ 
+  coefs <-coefs_lepi_test[i,]
+
+ pred_lepi <- ((coefs$Ruggedness[1]/lepi_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - lepi_Ruggedness_mean)) +
+               ((coefs$Elevation/lepi_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - lepi_Elevation_mean)) +
+               ((coefs$CanopyHeight/lepi_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - lepi_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/lepi_FLP_sd) * (stacked_habitat[["FLP_lepi"]] - lepi_FLP_mean))  +
+               coefs$Intercept
+ 
+ pred_lepi[pred_lepi < 0] <- 0
+ 
+  pred_lepi <-  pred_lepi^2
+  pred_lepi[pred_lepi> max(densities_habitat_lepi$Density_km2)] <- max(densities_habitat_lepi$Density_km2)
+  
+  lepi_pred <- pred_lepi
+  lepi_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  lepi_pred <- mask(lepi_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  lepi_2050 <- pred_lepi
+  lepi_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  lepi_2050 <- mask(lepi_2050, buffer)
+  
+  lepi_pred_pa <- mask(lepi_pred, bound)
+  lepi_2050_pa <- mask(lepi_2050, bound)
+
+  lepi_pred <- na.omit(lepi_pred@data@values)
+  lepi_pred_sum <- sum(lepi_pred)*cell_area_km
+  
+  lepi_pred_pa <- na.omit(lepi_pred_pa@data@values)
+  lepi_pred_pa_sum <- sum(lepi_pred_pa)*cell_area_km
+  
+  lepi_2050 <- na.omit(lepi_2050@data@values)
+  lepi_2050_sum <- sum(lepi_2050)*cell_area_km
+  
+  lepi_2050_pa <- na.omit(lepi_2050_pa@data@values)
+  lepi_2050_pa_sum <- sum(lepi_2050_pa)*cell_area_km
+
+
+  lepi_predictions[i, ] <- c(lepi_pred_sum, lepi_pred_pa_sum, lepi_2050_sum, lepi_2050_pa_sum)
+  
+}
+
+
+lepi_predictions2 <- data.frame(lepi_predictions)
+colnames(lepi_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
+
+#write.csv(lepi_predictions2 ,"lepi_predictions2.csv")
+lepi_predictions2 <- read.csv("lepi_predictions2.csv")
+
+ggplot(lepi_predictions2, aes(x=PA2020)) + ggtitle("Lepi")+
+  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=lepi_pointestimates[2] ),
+            color="blue", size=1)+
+  geom_vline(aes(xintercept=mean(na.omit(lepi_predictions2$PA2020)) ),
+            color="black", size=1)+
+  geom_vline(aes(xintercept=median(na.omit(lepi_predictions2$PA2020)) ),
+            color="black", linetype="dashed", size=1)
+
+
+```
+
+```{r scaled avahi}
+avahi_FLP_mean <- mean(densities_habitat_avahi$ForestLossProp)
+avahi_FLP_sd <- sd(densities_habitat_avahi$ForestLossProp)
+avahi_CanopyHeight_mean <- mean(densities_habitat_avahi$CanopyHeight)
+avahi_CanopyHeight_sd <- sd(densities_habitat_avahi$CanopyHeight)
+avahi_Ruggedness_mean <- mean(densities_habitat_avahi$Ruggedness)
+avahi_Ruggedness_sd <- sd(densities_habitat_avahi$Ruggedness)
+avahi_Elevation_mean <- mean(densities_habitat_avahi$Elevation)
+avahi_Elevation_sd <- sd(densities_habitat_avahi$Elevation)
+
+avahi_full <- lmer(data = densities_habitat_avahi , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+avahi_scale <- scale_mod(avahi_full)
+
+avahi_dredge <- dredge(avahi_scale, extra = "R^2")
+avahi_model_avg <- model.avg(avahi_dredge, fit = TRUE)
+summary_avahi_model_avg <- summary(avahi_model_avg)
+summary_avahi_model_avg
+
+coef_summary_avahi <- summary_avahi_model_avg$coefmat.full
+importance_avahi_model_avg <- sw(avahi_model_avg)
+
+avahi_coefficients <- as.data.frame(avahi_model_avg$coefficients)[1,]
+avahi_coefficients <- avahi_coefficients[, sort(colnames(avahi_coefficients))]
+
+#point estimate
+
+  coefs <-avahi_coefficients
+
+ pred_avahi <- ((coefs$Ruggedness[1]/avahi_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - avahi_Ruggedness_mean)) +
+               ((coefs$Elevation/avahi_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - avahi_Elevation_mean)) +
+               ((coefs$CanopyHeight/avahi_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - avahi_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/avahi_FLP_sd) * (stacked_habitat[["FLP_avahi"]] - avahi_FLP_mean))  +
+               coefs$`(Intercept)`
+ 
+ pred_avahi[pred_avahi < 0] <- 0
+ 
+  pred_avahi <-  pred_avahi^2
+  pred_avahi[pred_avahi> max(densities_habitat_avahi$Density_km2)] <- max(densities_habitat_avahi$Density_km2)
+  
+  avahi_pred <- pred_avahi
+  avahi_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  avahi_pred <- mask(avahi_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  avahi_2050 <- pred_avahi
+  avahi_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  avahi_2050 <- mask(avahi_2050, buffer)
+  
+  avahi_pred_pa <- mask(avahi_pred, bound)
+  avahi_2050_pa <- mask(avahi_2050, bound)
+  
+  avahi_map_2020 <- avahi_pred
+avahi_map_2050 <- avahi_2050
+
+  avahi_pred <- na.omit(avahi_pred@data@values)
+  avahi_pred_sum <- sum(avahi_pred)*cell_area_km
+  
+  avahi_pred_pa <- na.omit(avahi_pred_pa@data@values)
+  avahi_pred_pa_sum <- sum(avahi_pred_pa)*cell_area_km
+  
+  avahi_2050 <- na.omit(avahi_2050@data@values)
+  avahi_2050_sum <- sum(avahi_2050)*cell_area_km
+  
+  avahi_2050_pa <- na.omit(avahi_2050_pa@data@values)
+  avahi_2050_pa_sum <- sum(avahi_2050_pa)*cell_area_km
+
+
+  avahi_pointestimates <- c(avahi_pred_sum, avahi_pred_pa_sum, avahi_2050_sum, avahi_2050_pa_sum)
+ 
+
+
+
+##loop not loop
+coef_Intercept_avahi<-  rnorm(1000, mean=5.3790 , sd=0.7788)
+coef_FLP_avahi<-  rnorm(1000, mean=0.3316  , sd=0.6729 )
+coef_CH_avahi<-  rnorm(1000, mean=0.4275 , sd=0.7210 )
+coef_Rug_avahi<-  rnorm(1000, mean=-0.3417, sd= 0.6828)
+coef_Elev_avahi<-  rnorm(1000, mean=-0.2868  , sd=0.6246 )
+
+
+coefs_avahi_test <- data.frame(Intercept=coef_Intercept_avahi,ForestLossProp=coef_FLP_avahi, CanopyHeight=coef_CH_avahi, Ruggedness = coef_Rug_avahi, Elevation=coef_Elev_avahi)
+
+
+avahi_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
+ 
+  coefs <-coefs_avahi_test[i,]
+
+ pred_avahi <- ((coefs$Ruggedness[1]/avahi_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - avahi_Ruggedness_mean)) +
+               ((coefs$Elevation/avahi_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - avahi_Elevation_mean)) +
+               ((coefs$CanopyHeight/avahi_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - avahi_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/avahi_FLP_sd) * (stacked_habitat[["FLP_avahi"]] - avahi_FLP_mean))  +
+               coefs$Intercept
+ 
+ pred_avahi[pred_avahi < 0] <- 0
+ 
+  pred_avahi <-  pred_avahi^2
+  pred_avahi[pred_avahi> max(densities_habitat_avahi$Density_km2)] <- max(densities_habitat_avahi$Density_km2)
+  
+  avahi_pred <- pred_avahi
+  avahi_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  avahi_pred <- mask(avahi_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  avahi_2050 <- pred_avahi
+  avahi_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  avahi_2050 <- mask(avahi_2050, buffer)
+  
+  avahi_pred_pa <- mask(avahi_pred, bound)
+  avahi_2050_pa <- mask(avahi_2050, bound)
+
+  avahi_pred <- na.omit(avahi_pred@data@values)
+  avahi_pred_sum <- sum(avahi_pred)*cell_area_km
+  
+  avahi_pred_pa <- na.omit(avahi_pred_pa@data@values)
+  avahi_pred_pa_sum <- sum(avahi_pred_pa)*cell_area_km
+  
+  avahi_2050 <- na.omit(avahi_2050@data@values)
+  avahi_2050_sum <- sum(avahi_2050)*cell_area_km
+  
+  avahi_2050_pa <- na.omit(avahi_2050_pa@data@values)
+  avahi_2050_pa_sum <- sum(avahi_2050_pa)*cell_area_km
+
+
+  avahi_predictions[i, ] <- c(avahi_pred_sum, avahi_pred_pa_sum, avahi_2050_sum, avahi_2050_pa_sum)
+  
+}
+
+
+avahi_predictions2 <- data.frame(avahi_predictions)
+colnames(avahi_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
+
+#write.csv(avahi_predictions2 ,"avahi_predictions2.csv")
+avahi_predictions2  <- read.csv("avahi_predictions2.csv")
+
+ggplot(avahi_predictions2, aes(x=PA2020)) + ggtitle("Avahi")+
+  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=avahi_pointestimates[2] ),
+            color="blue", size=1)+
+  geom_vline(aes(xintercept=mean(na.omit(avahi_predictions2$PA2020)) ),
+            color="black", size=1)+
+  geom_vline(aes(xintercept=median(na.omit(avahi_predictions2$PA2020)) ),
+            color="black", linetype="dashed", size=1)
+
+
+```
+
+```{r scaled hapa}
+hapa_FLP_mean <- mean(densities_habitat_hapa$ForestLossProp)
+hapa_FLP_sd <- sd(densities_habitat_hapa$ForestLossProp)
+hapa_CanopyHeight_mean <- mean(densities_habitat_hapa$CanopyHeight)
+hapa_CanopyHeight_sd <- sd(densities_habitat_hapa$CanopyHeight)
+hapa_Ruggedness_mean <- mean(densities_habitat_hapa$Ruggedness)
+hapa_Ruggedness_sd <- sd(densities_habitat_hapa$Ruggedness)
+hapa_Elevation_mean <- mean(densities_habitat_hapa$Elevation)
+hapa_Elevation_sd <- sd(densities_habitat_hapa$Elevation)
+
+hapa_full <- lmer(data = densities_habitat_hapa , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+hapa_scale <- scale_mod(hapa_full)
+
+hapa_dredge <- dredge(hapa_scale, extra = "R^2")
+hapa_model_avg <- model.avg(hapa_dredge, fit = TRUE)
+summary_hapa_model_avg <- summary(hapa_model_avg)
+summary_hapa_model_avg
+
+coef_summary_hapa <- summary_hapa_model_avg$coefmat.full
+importance_hapa_model_avg <- sw(hapa_model_avg)
+
+hapa_coefficients <- as.data.frame(hapa_model_avg$coefficients)[1,]
+hapa_coefficients <- hapa_coefficients[, sort(colnames(hapa_coefficients))]
+
+#point estimate
+
+  coefs <-hapa_coefficients
+
+ pred_hapa <- ((coefs$Ruggedness[1]/hapa_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - hapa_Ruggedness_mean)) +
+               ((coefs$Elevation/hapa_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - hapa_Elevation_mean)) +
+               ((coefs$CanopyHeight/hapa_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - hapa_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/hapa_FLP_sd) * (stacked_habitat[["FLP_hapa"]] - hapa_FLP_mean))  +
+               coefs$`(Intercept)`
+ 
+ pred_hapa[pred_hapa < 0] <- 0
+ 
+  pred_hapa <-  pred_hapa^2
+  pred_hapa[pred_hapa> max(densities_habitat_hapa$Density_km2)] <- max(densities_habitat_hapa$Density_km2)
+  
+  hapa_pred <- pred_hapa
+  hapa_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  hapa_pred <- mask(hapa_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  hapa_2050 <- pred_hapa
+  hapa_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  hapa_2050 <- mask(hapa_2050, buffer)
+  
+  hapa_pred_pa <- mask(hapa_pred, bound)
+  hapa_2050_pa <- mask(hapa_2050, bound)
+
+  hapa_map_2020 <- hapa_pred
+hapa_map_2050 <- hapa_2050
+  
+  hapa_pred <- na.omit(hapa_pred@data@values)
+  hapa_pred_sum <- sum(hapa_pred)*cell_area_km
+  
+  hapa_pred_pa <- na.omit(hapa_pred_pa@data@values)
+  hapa_pred_pa_sum <- sum(hapa_pred_pa)*cell_area_km
+  
+  hapa_2050 <- na.omit(hapa_2050@data@values)
+  hapa_2050_sum <- sum(hapa_2050)*cell_area_km
+  
+  hapa_2050_pa <- na.omit(hapa_2050_pa@data@values)
+  hapa_2050_pa_sum <- sum(hapa_2050_pa)*cell_area_km
+
+
+  hapa_pointestimates <- c(hapa_pred_sum, hapa_pred_pa_sum, hapa_2050_sum, hapa_2050_pa_sum)
+ 
+
+
+
+##loop not loop
+coef_Intercept_hapa<-  rnorm(1000, mean=0.240170, sd=0.176608)
+coef_FLP_hapa<-  rnorm(1000, mean=0.373953 , sd=0.163772 )
+coef_CH_hapa<-  rnorm(1000, mean=0.045210, sd=0.102588)
+coef_Rug_hapa<-  rnorm(1000, mean=-0.004787 , sd=0.051925)
+coef_Elev_hapa<-  rnorm(1000, mean=0.009724, sd=0.051925)
+
+
+coefs_hapa_test <- data.frame(Intercept=coef_Intercept_hapa,ForestLossProp=coef_FLP_hapa, CanopyHeight=coef_CH_hapa, Ruggedness = coef_Rug_hapa, Elevation=coef_Elev_hapa)
+
+
+hapa_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
+ 
+  coefs <-coefs_hapa_test[i,]
+
+ pred_hapa <- ((coefs$Ruggedness[1]/hapa_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - hapa_Ruggedness_mean)) +
+               ((coefs$Elevation/hapa_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - hapa_Elevation_mean)) +
+               ((coefs$CanopyHeight/hapa_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - hapa_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/hapa_FLP_sd) * (stacked_habitat[["FLP_hapa"]] - hapa_FLP_mean))  +
+               coefs$Intercept
+ 
+ pred_hapa[pred_hapa < 0] <- 0
+ 
+  pred_hapa <-  pred_hapa^2
+  pred_hapa[pred_hapa> max(densities_habitat_hapa$Density_km2)] <- max(densities_habitat_hapa$Density_km2)
+  
+  hapa_pred <- pred_hapa
+  hapa_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  hapa_pred <- mask(hapa_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  hapa_2050 <- pred_hapa
+  hapa_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  hapa_2050 <- mask(hapa_2050, buffer)
+  
+  hapa_pred_pa <- mask(hapa_pred, bound)
+  hapa_2050_pa <- mask(hapa_2050, bound)
+
+  hapa_pred <- na.omit(hapa_pred@data@values)
+  hapa_pred_sum <- sum(hapa_pred)*cell_area_km
+  
+  hapa_pred_pa <- na.omit(hapa_pred_pa@data@values)
+  hapa_pred_pa_sum <- sum(hapa_pred_pa)*cell_area_km
+  
+  hapa_2050 <- na.omit(hapa_2050@data@values)
+  hapa_2050_sum <- sum(hapa_2050)*cell_area_km
+  
+  hapa_2050_pa <- na.omit(hapa_2050_pa@data@values)
+  hapa_2050_pa_sum <- sum(hapa_2050_pa)*cell_area_km
+
+
+  hapa_predictions[i, ] <- c(hapa_pred_sum, hapa_pred_pa_sum, hapa_2050_sum, hapa_2050_pa_sum)
+  
+}
+
+
+hapa_predictions2 <- data.frame(hapa_predictions)
+colnames(hapa_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
+
+ggplot(hapa_predictions2, aes(x=PA2020)) + 
+  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=hapa_pointestimates[2] ),
+            color="blue", size=1)+
+  geom_vline(aes(xintercept=mean(na.omit(hapa_predictions2$PA2020)) ),
+            color="black", size=1)+
+  geom_vline(aes(xintercept=median(na.omit(hapa_predictions2$PA2020)) ),
+            color="black", linetype="dashed", size=1)
+
+#write.csv(hapa_predictions2 ,"hapa_predictions2.csv")
+```
+ 
+```{r scaled allo}
+allo_FLP_mean <- mean(densities_habitat_allo$ForestLossProp)
+allo_FLP_sd <- sd(densities_habitat_allo$ForestLossProp)
+allo_CanopyHeight_mean <- mean(densities_habitat_allo$CanopyHeight)
+allo_CanopyHeight_sd <- sd(densities_habitat_allo$CanopyHeight)
+allo_Ruggedness_mean <- mean(densities_habitat_allo$Ruggedness)
+allo_Ruggedness_sd <- sd(densities_habitat_allo$Ruggedness)
+allo_Elevation_mean <- mean(densities_habitat_allo$Elevation)
+allo_Elevation_sd <- sd(densities_habitat_allo$Elevation)
+
+allo_full <- lmer(data = densities_habitat_allo , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+allo_scale <- scale_mod(allo_full)
+
+allo_dredge <- dredge(allo_scale, extra = "R^2")
+allo_model_avg <- model.avg(allo_dredge, fit = TRUE)
+summary_allo_model_avg <- summary(allo_model_avg)
+summary_allo_model_avg
+
+coef_summary_allo <- summary_allo_model_avg$coefmat.full
+importance_allo_model_avg <- sw(allo_model_avg)
+
+allo_coefficients <- as.data.frame(allo_model_avg$coefficients)[1,]
+allo_coefficients <- allo_coefficients[, sort(colnames(allo_coefficients))]
+
+#point estimate
+
+  coefs <-allo_coefficients
+
+ pred_allo <- ((coefs$Ruggedness[1]/allo_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - allo_Ruggedness_mean)) +
+               ((coefs$Elevation/allo_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - allo_Elevation_mean)) +
+               ((coefs$CanopyHeight/allo_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - allo_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/allo_FLP_sd) * (stacked_habitat[["FLP_allo"]] - allo_FLP_mean))  +
+               coefs$`(Intercept)`
+ 
+ pred_allo[pred_allo < 0] <- 0
+ 
+  pred_allo <-  pred_allo^2
+  pred_allo[pred_allo> max(densities_habitat_allo$Density_km2)] <- max(densities_habitat_allo$Density_km2)
+  
+  allo_pred <- pred_allo
+  allo_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  allo_pred <- mask(allo_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  allo_2050 <- pred_allo
+  allo_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  allo_2050 <- mask(allo_2050, buffer)
+  
+  allo_pred_pa <- mask(allo_pred, bound)
+  allo_2050_pa <- mask(allo_2050, bound)
+  
+  allo_map_2020 <- allo_pred
+  allo_map_2050 <- allo_2050
+
+  allo_pred <- na.omit(allo_pred@data@values)
+  allo_pred_sum <- sum(allo_pred)*cell_area_km
+  
+  allo_pred_pa <- na.omit(allo_pred_pa@data@values)
+  allo_pred_pa_sum <- sum(allo_pred_pa)*cell_area_km
+  
+  allo_2050 <- na.omit(allo_2050@data@values)
+  allo_2050_sum <- sum(allo_2050)*cell_area_km
+  
+  allo_2050_pa <- na.omit(allo_2050_pa@data@values)
+  allo_2050_pa_sum <- sum(allo_2050_pa)*cell_area_km
+
+
+  allo_pointestimates <- c(allo_pred_sum, allo_pred_pa_sum, allo_2050_sum, allo_2050_pa_sum)
+ 
+
+
+
+##loop not loop
+coef_Intercept_allo<-  rnorm(1000, mean=5.5107, sd=0.5404)
+coef_FLP_allo<-  rnorm(1000, mean=0.9121 , sd=0.7005)
+coef_CH_allo<-  rnorm(1000, mean=0.0467, sd=0.2979 )
+coef_Rug_allo<-  rnorm(1000, mean=-0.1302, sd=0.3849)
+coef_Elev_allo<-  rnorm(1000, mean=-0.2194  , sd=0.4351)
+
+
+coefs_allo_test <- data.frame(Intercept=coef_Intercept_allo,ForestLossProp=coef_FLP_allo, CanopyHeight=coef_CH_allo, Ruggedness = coef_Rug_allo, Elevation=coef_Elev_allo)
+
+
+allo_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
+ 
+  coefs <-coefs_allo_test[i,]
+
+ pred_allo <- ((coefs$Ruggedness[1]/allo_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - allo_Ruggedness_mean)) +
+               ((coefs$Elevation/allo_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - allo_Elevation_mean)) +
+               ((coefs$CanopyHeight/allo_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - allo_CanopyHeight_mean)) +
+               ((coefs$ForestLossProp/allo_FLP_sd) * (stacked_habitat[["FLP_allo"]] - allo_FLP_mean))  +
+               coefs$Intercept
+ 
+ pred_allo[pred_allo < 0] <- 0
+ 
+  pred_allo <-  pred_allo^2
+  pred_allo[pred_allo> max(densities_habitat_allo$Density_km2)] <- max(densities_habitat_allo$Density_km2)
+  
+  allo_pred <- pred_allo
+  allo_pred[is.na(stacked_habitat[["ForestTot"]])] <- NA
+  allo_pred <- mask(allo_pred, buffer)
+  
+  stacked_habitat$fcc_2050_AFR_aea[stacked_habitat$fcc_2050_AFR_aea==0] <-NA 
+  
+  allo_2050 <- pred_allo
+  allo_2050[is.na(stacked_habitat[["fcc_2050_AFR_aea"]])] <- NA
+  allo_2050 <- mask(allo_2050, buffer)
+  
+  allo_pred_pa <- mask(allo_pred, bound)
+  allo_2050_pa <- mask(allo_2050, bound)
+
+  allo_pred <- na.omit(allo_pred@data@values)
+  allo_pred_sum <- sum(allo_pred)*cell_area_km
+  
+  allo_pred_pa <- na.omit(allo_pred_pa@data@values)
+  allo_pred_pa_sum <- sum(allo_pred_pa)*cell_area_km
+  
+  allo_2050 <- na.omit(allo_2050@data@values)
+  allo_2050_sum <- sum(allo_2050)*cell_area_km
+  
+  allo_2050_pa <- na.omit(allo_2050_pa@data@values)
+  allo_2050_pa_sum <- sum(allo_2050_pa)*cell_area_km
+
+
+  allo_predictions[i, ] <- c(allo_pred_sum, allo_pred_pa_sum, allo_2050_sum, allo_2050_pa_sum)
+  
+}
+
+
+allo_predictions2 <- data.frame(allo_predictions)
+colnames(allo_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
+
+ggplot(allo_predictions2, aes(x=PA2020)) + 
+  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=allo_pointestimates[2] ),
+            color="blue", size=1)+
+  geom_vline(aes(xintercept=mean(na.omit(allo_predictions2$PA2020)) ),
+            color="black", size=1)+
+  geom_vline(aes(xintercept=median(na.omit(allo_predictions2$PA2020)) ),
+            color="black", linetype="dashed", size=1)
+
+#write.csv(allo_predictions2 ,"allo_predictions2.csv")
+```
+ 
+```{r}
+estimates <- data.frame(Estimate= c("Buffer2020", "PA2020", "Buffer2050", "PA2050"))
+
+albi_pointestimates <- as.data.frame(albi_pointestimates)
+estimates$Albi <- albi_pointestimates$albi_pointestimates
+
+allo_pointestimates <- as.data.frame(allo_pointestimates)
+estimates$allo <- allo_pointestimates$allo_pointestimates
+
+cheiro_pointestimates <- as.data.frame(cheiro_pointestimates)
+estimates$cheiro <- cheiro_pointestimates$cheiro_pointestimates
+
+avahi_pointestimates <- as.data.frame(avahi_pointestimates)
+estimates$avahi <- avahi_pointestimates$avahi_pointestimates
+
+hapa_pointestimates <- as.data.frame(hapa_pointestimates)
+estimates$hapa <- hapa_pointestimates$hapa_pointestimates
+
+lepi_pointestimates <- as.data.frame(lepi_pointestimates)
+estimates$lepi <- lepi_pointestimates$lepi_pointestimates
+
+micro_pointestimates <- as.data.frame(micro_pointestimates)
+estimates$micro <- micro_pointestimates$micro_pointestimates
+
+prop_pointestimates <- as.data.frame(prop_pointestimates)
+estimates$prop <- prop_pointestimates$prop_pointestimates
+
+rubri_pointestimates <- as.data.frame(rubri_pointestimates)
+estimates$rubri <- rubri_pointestimates$rubri_pointestimates
+
+estimates2 <- data.frame(t(estimates[-1]))
+colnames(estimates2) <- estimates[, 1]
+
+estimates2$LossInPA <- 100*(1 - (estimates2$PA2050/estimates2$PA2020  ))
+estimates2$TotalLoss <- 100*(1 - (estimates2$Buffer2050/estimates2$Buffer2020  ))
+
+write.csv(estimates2, "PopulationEstimatesandPercentLoss.csv")
+
+ggarrange(plot(allo_map_2020), plot(albi_map_2020), nrow=1, ncol = 2)
+
+plot(allo_map_2020)
+
+plot(allo_map_2020, main = "Allo")
+plot(albi_map_2020, main = "Albi")
+plot(avahi_map_2020, main = "avahi")
+plot(cheiro_map_2020, main = "cheiro")
+plot(hapa_map_2020, main = "hapa")
+plot(lepi_map_2020, main = "lepi")
+plot(micro_map_2020, main = "micro")
+plot(prop_map_2020, main = "prop")
+plot(rubri_map_2020, main = "rubri")
+
+writeRaster(allo_map_2020,'allo_pred.tif') 
+writeRaster(albi_map_2020,'albi_pred.tif') 
+writeRaster(avahi_map_2020,'avahi_pred.tif') 
+writeRaster(cheiro_map_2020,'cheiro_pred.tif') 
+writeRaster(hapa_map_2020,'hapa_pred.tif') 
+writeRaster(lepi_map_2020,'lepi_pred.tif') 
+writeRaster(micro_map_2020,'micro_pred.tif') 
+writeRaster(prop_map_2020,'prop_pred.tif') 
+writeRaster(rubri_map_2020,'rubri_pred.tif') 
+
+```
+ 
+```{r Variable Importance Figure}
+
+library(tibble)
+importance_allo_model_avg2 <- as.data.frame(importance_allo_model_avg)
+importance_allo_model_avg2 <- tibble::rownames_to_column(importance_allo_model_avg2, "Variable")
+
+importance_albi_model_avg2 <- as.data.frame(importance_albi_model_avg)
+importance_albi_model_avg2 <- tibble::rownames_to_column(importance_albi_model_avg2, "Variable")
+
+importance_avahi_model_avg2 <- as.data.frame(importance_avahi_model_avg)
+importance_avahi_model_avg2 <- tibble::rownames_to_column(importance_avahi_model_avg2, "Variable")
+
+importance_cheiro_model_avg2 <- as.data.frame(importance_cheiro_model_avg)
+importance_cheiro_model_avg2 <- tibble::rownames_to_column(importance_cheiro_model_avg2, "Variable")
+
+importance_hapa_model_avg2 <- as.data.frame(importance_hapa_model_avg)
+importance_hapa_model_avg2 <- tibble::rownames_to_column(importance_hapa_model_avg2, "Variable")
+
+importance_lepi_model_avg2 <- as.data.frame(importance_lepi_model_avg)
+importance_lepi_model_avg2 <- tibble::rownames_to_column(importance_lepi_model_avg2, "Variable")
+
+importance_micro_model_avg2 <- as.data.frame(importance_micro_model_avg)
+importance_micro_model_avg2 <- tibble::rownames_to_column(importance_micro_model_avg2, "Variable")
+
+importance_prop_model_avg2 <- as.data.frame(importance_prop_model_avg)
+importance_prop_model_avg2 <- tibble::rownames_to_column(importance_prop_model_avg2, "Variable")
+
+importance_rubri_model_avg2 <- as.data.frame(importance_rubri_model_avg)
+importance_rubri_model_avg2 <- tibble::rownames_to_column(importance_rubri_model_avg2, "Variable")
+
+
+list_df = list(importance_allo_model_avg2,importance_albi_model_avg2,importance_avahi_model_avg2, importance_cheiro_model_avg2, importance_hapa_model_avg2, importance_lepi_model_avg2, importance_micro_model_avg2, importance_prop_model_avg2, importance_rubri_model_avg2)
+importance <- list_df %>% reduce(full_join, by="Variable")
+
+colnames(importance) <- c("Variable","Allo","Albi","Avahi","Cheiro", "Hapa", "Lepi", "Micro", "Prop", "Rubri")
+
+importance2<- importance %>% pivot_longer(
+  cols = Allo:Rubri,
+  names_to = "Species",
+  values_to = "Importance")
+
+
+
+
+#importance$Direction <- c("+", "+", "-", "-", 
+#                          "+", "+", "-", "-", 
+ #                         "+", "-", "-", "-", 
+  #                        "+", "+", "-", "+", 
+   #                       "-", "+", "+", "+", 
+    #                      "+", "+", "+", "+", 
+     #                     "+", "+", "-", "-", 
+      #                    "+", "-", "-", "+", 
+       #                   "+", "+", "+", "-"
+        #                  )
+
+
+
+importance_fig <- ggplot(data = importance2, aes(x = Species, y = Variable))+
+  geom_tile(aes(fill = Importance), color="white")+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))+
+  scale_fill_viridis_c(direction = -1,option="magma")
+#+
+ # geom_text(aes(label=Direction), color= c(rep(c("white","black",  "black", "black"),6),c("white","white",  "black", "black"),c("white","black",  "black", "black"),c("white","black",  "black", "black")), size=6)
+
+
+importance2$Importance <- round(importance2$Importance, 3) 
+importance2$Variable <- factor(importance2$Variable, levels = c("(Intercept)", "ForestLossProp", "CanopyHeight", "Ruggedness", "Elevation"))
+importance2<- importance2[with(importance2, order(Species, Variable)), ]
+
+
+coef_summary_table4 <- coef_summary_table2 %>% filter(Variable!='(Intercept)')
+coef_summary_table4 <- coef_summary_table4[with(coef_summary_table4, order(Species, Variable)), ]
+
+importance2$Estimate <- coef_summary_table4$Estimate
+importance2$sign <- 0
+importance2$sign[importance2$Estimate >0] <- "+"
+importance2$sign[importance2$Estimate <0] <- "-"
+
+write.csv(importance2, "variable_importance.csv")
+
+
+coef_summary_rubri2 <- as.data.frame(coef_summary_rubri)
+coef_summary_rubri2 <- tibble::rownames_to_column(coef_summary_rubri2, "Variable")
+coef_summary_rubri2$Species <- "rubri"
+
+coef_summary_prop2 <- as.data.frame(coef_summary_prop)
+coef_summary_prop2 <- tibble::rownames_to_column(coef_summary_prop2, "Variable")
+coef_summary_prop2$Species <- "prop"
+
+coef_summary_allo2 <- as.data.frame(coef_summary_allo)
+coef_summary_allo2 <- tibble::rownames_to_column(coef_summary_allo2, "Variable")
+coef_summary_allo2$Species <- "allo"
+
+coef_summary_albi2 <- as.data.frame(coef_summary_albi)
+coef_summary_albi2 <- tibble::rownames_to_column(coef_summary_albi2, "Variable")
+coef_summary_albi2$Species <- "albi"
+
+coef_summary_avahi2 <- as.data.frame(coef_summary_avahi)
+coef_summary_avahi2 <- tibble::rownames_to_column(coef_summary_avahi2, "Variable")
+coef_summary_avahi2$Species <- "avahi"
+
+coef_summary_cheiro2 <- as.data.frame(coef_summary_cheiro)
+coef_summary_cheiro2 <- tibble::rownames_to_column(coef_summary_cheiro2, "Variable")
+coef_summary_cheiro2$Species <- "cheiro"
+
+coef_summary_hapa2 <- as.data.frame(coef_summary_hapa)
+coef_summary_hapa2 <- tibble::rownames_to_column(coef_summary_hapa2, "Variable")
+coef_summary_hapa2$Species <- "hapa"
+
+coef_summary_micro2 <- as.data.frame(coef_summary_micro)
+coef_summary_micro2 <- tibble::rownames_to_column(coef_summary_micro2, "Variable")
+coef_summary_micro2$Species <- "micro"
+
+coef_summary_lepi2 <- as.data.frame(coef_summary_lepi)
+coef_summary_lepi2 <- tibble::rownames_to_column(coef_summary_lepi2, "Variable")
+coef_summary_lepi2$Species <- "lepi"
+
+
+
+coef_summary_table<- rbind(coef_summary_rubri2, coef_summary_prop2, coef_summary_avahi2, coef_summary_allo2, coef_summary_albi2, coef_summary_cheiro2, coef_summary_hapa2, coef_summary_lepi2, coef_summary_micro2)
+
+coef_summary_table$Variable <- factor(coef_summary_table$Variable, levels = c("(Intercept)", "ForestLossProp", "CanopyHeight", "Ruggedness", "Elevation"))
+coef_summary_table <- coef_summary_table[with(coef_summary_table, order(Species, Variable)), ]
+
+write.csv(coef_summary_table, "coef_summary_table_full .csv")
+
+coef_summary_table2 <- coef_summary_table %>% dplyr::select(Variable, Estimate, 'Std. Error', 'Pr(>|z|)', Species)
+  
+coef_summary_table2$Estimate <- round(coef_summary_table2$Estimate,3 )
+coef_summary_table2$'Std. Error' <- round(coef_summary_table2$'Std. Error',3 )
+coef_summary_table2$'Pr(>|z|)'<- round(coef_summary_table2$'Pr(>|z|)',3 )
+
+write.csv(coef_summary_table2, "coef_summary_table2 .csv")
+``` 
+ 
