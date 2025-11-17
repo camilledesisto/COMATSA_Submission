@@ -5,11 +5,583 @@ date: "2025-03-06"
 output: html_document
 ---
 
+
+
+```{r Load packages and data}
+#install.packages("rgdal", repos="http://R-Forge.R-project.org")
+require(raster)
+require(tidyverse)
+require(sf)
+library(terra)
+
+getwd()
+
+F2050 <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/fcc_2050_AFR_aea.tif")
+
+extent_wgs84 <- extent(49, 50 ,-15 ,  -14 )
+
+# Create a SpatialPolygons object for the extent
+extent_polygon <- as(extent_wgs84, "SpatialPolygons")
+proj4string(extent_polygon) <- CRS("+proj=longlat +datum=WGS84")
+extent_polygon_transformed <- spTransform(extent_polygon, crs(F2050))
+transformed_extent <- extent(extent_polygon_transformed)
+F2050 <- crop(F2050, transformed_extent)
+
+
+DEM <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/ASTGTMV003_S15E049_dem.tif")
+FH <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/Forest_height_2019_SAFR.tif")
+TRI <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/TRI_Nov2023.tif")
+FL <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/FARForestLoss20102021.tif")
+FC <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/FARForestCover_2010.tif")
+
+
+names(FL) <- "ForestLoss"
+FP <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/forest_2020.tif")
+extent_polygon <- as(extent_wgs84, "SpatialPolygons")
+proj4string(extent_polygon) <- CRS("+proj=longlat +datum=WGS84")
+extent_polygon_transformed <- spTransform(extent_polygon, crs(FP))
+transformed_extent <- extent(extent_polygon_transformed)
+FP <- crop(FP, transformed_extent)
+
+
+FPred <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/clipped_deforestation_2050.img")
+#F2020 <- raster("Data/clipped_deforestation_2020.img")
+names(FP) <- "ForestTot"
+bound <- read_sf("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/comatsa_sud_boundary.shp")
+buffer <- read_sf("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/comatsa_buffer_sites.shp")
+buffer <- st_transform(buffer, crs = 4326)
+bound <- st_transform(bound ,crs = 4326)
+
+```
+
+```{r Creat Forest Loss DFs for Each Lemur Species}
+
+focal_weights_allo <- focalMat(FL, 180.2, type = "circle")
+focal_weights_allo[focal_weights_allo > 0] <- 1  
+FL_allo <- terra::focal(FL, w = focal_weights_allo, fun = "sum", na.rm = TRUE)
+
+focal_weights_albi <- focalMat(FL, 203.4, type = "circle")
+focal_weights_albi[focal_weights_albi > 0] <- 1  
+FL_albi <- terra::focal(FL, w = focal_weights_albi, fun = "sum", na.rm = TRUE)
+
+focal_weights_avahi <- focalMat(FL, 56.4, type = "circle")
+focal_weights_avahi[focal_weights_avahi > 0] <- 1  
+FL_avahi <- terra::focal(FL, w = focal_weights_avahi, fun = "sum", na.rm = TRUE)
+
+focal_weights_lepi <- focalMat(FL, 43.7, type = "circle")
+focal_weights_lepi[focal_weights_lepi > 0] <- 1  
+FL_lepi <- terra::focal(FL, w = focal_weights_lepi, fun = "sum", na.rm = TRUE)
+
+focal_weights_cheiro <- focalMat(FL, 89.2, type = "circle")
+focal_weights_cheiro[focal_weights_cheiro > 0] <- 1  
+FL_cheiro <- terra::focal(FL, w = focal_weights_cheiro, fun = "sum", na.rm = TRUE)
+
+focal_weights_micro <- focalMat(FL, 77.8, type = "circle")
+focal_weights_micro[focal_weights_micro > 0] <- 1  
+FL_micro <- terra::focal(FL, w = focal_weights_micro, fun = "sum", na.rm = TRUE)
+
+focal_weights_hapa <- focalMat(FL, 119.7, type = "circle")
+focal_weights_hapa[focal_weights_hapa > 0] <- 1  
+FL_hapa <- terra::focal(FL, w = focal_weights_hapa, fun = "sum", na.rm = TRUE)
+
+focal_weights_rubri <- focalMat(FL, 249.1, type = "circle")
+focal_weights_rubri[focal_weights_rubri > 0] <- 1  
+FL_rubri <- terra::focal(FL, w = focal_weights_rubri, fun = "sum", na.rm = TRUE)
+
+focal_weights_prop <- focalMat(FL, 364.3, type = "circle")
+focal_weights_prop[focal_weights_prop > 0] <- 1  
+FL_prop <- terra::focal(FL, w = focal_weights_prop, fun = "sum", na.rm = TRUE)
+
+
+
+focal_weights_allo <- focalMat(FC, 180.2, type = "circle")
+focal_weights_allo[focal_weights_allo > 0] <- 1  
+FC_allo <- terra::focal(FC, w = focal_weights_allo, fun = "sum", na.rm = TRUE)
+
+focal_weights_albi <- focalMat(FC, 203.4, type = "circle")
+focal_weights_albi[focal_weights_albi > 0] <- 1  
+FC_albi <- terra::focal(FC, w = focal_weights_albi, fun = "sum", na.rm = TRUE)
+
+focal_weights_avahi <- focalMat(FC, 56.4, type = "circle")
+focal_weights_avahi[focal_weights_avahi > 0] <- 1  
+FC_avahi <- terra::focal(FC, w = focal_weights_avahi, fun = "sum", na.rm = TRUE)
+
+focal_weights_lepi <- focalMat(FC, 43.7, type = "circle")
+focal_weights_lepi[focal_weights_lepi > 0] <- 1  
+FC_lepi <- terra::focal(FC, w = focal_weights_lepi, fun = "sum", na.rm = TRUE)
+
+focal_weights_cheiro <- focalMat(FC, 89.2, type = "circle")
+focal_weights_cheiro[focal_weights_cheiro > 0] <- 1  
+FC_cheiro <- terra::focal(FC, w = focal_weights_cheiro, fun = "sum", na.rm = TRUE)
+
+focal_weights_micro <- focalMat(FC, 77.8, type = "circle")
+focal_weights_micro[focal_weights_micro > 0] <- 1  
+FC_micro <- terra::focal(FC, w = focal_weights_micro, fun = "sum", na.rm = TRUE)
+
+focal_weights_hapa <- focalMat(FC, 119.7, type = "circle")
+focal_weights_hapa[focal_weights_hapa > 0] <- 1  
+FC_hapa <- terra::focal(FC, w = focal_weights_hapa, fun = "sum", na.rm = TRUE)
+
+focal_weights_rubri <- focalMat(FC, 249.1, type = "circle")
+focal_weights_rubri[focal_weights_rubri > 0] <- 1  
+FC_rubri <- terra::focal(FC, w = focal_weights_rubri, fun = "sum", na.rm = TRUE)
+
+focal_weights_prop <- focalMat(FC, 364.3, type = "circle")
+focal_weights_prop[focal_weights_prop > 0] <- 1  
+FC_prop <- terra::focal(FC, w = focal_weights_prop, fun = "sum", na.rm = TRUE)
+
+
+```
+
+```{r Spatial data cleaning}
+FP <- projectRaster(FP, crs = crs(DEM), method = "ngb")
+FPred <- projectRaster(FPred, crs = crs(DEM), method = "ngb")
+FL_prop <- projectRaster(FL_prop, crs = crs(DEM))
+FC_prop <- projectRaster(FC_prop, crs = crs(DEM))
+FL_albi <- projectRaster(FL_albi, crs = crs(DEM))
+FC_albi <- projectRaster(FC_albi, crs = crs(DEM))
+FL_allo <- projectRaster(FL_allo, crs = crs(DEM))
+FC_allo <- projectRaster(FC_allo, crs = crs(DEM))
+FL_avahi <- projectRaster(FL_avahi, crs = crs(DEM))
+FC_avahi <- projectRaster(FC_avahi, crs = crs(DEM))
+FL_cheiro <- projectRaster(FL_cheiro, crs = crs(DEM))
+FC_cheiro <- projectRaster(FC_cheiro, crs = crs(DEM))
+FL_hapa <- projectRaster(FL_hapa, crs = crs(DEM))
+FC_hapa <- projectRaster(FC_hapa, crs = crs(DEM))
+FL_lepi <- projectRaster(FL_lepi, crs = crs(DEM))
+FC_lepi <- projectRaster(FC_lepi, crs = crs(DEM))
+FL_micro <- projectRaster(FL_micro, crs = crs(DEM))
+FC_micro <- projectRaster(FC_micro, crs = crs(DEM))
+FL_rubri <- projectRaster(FL_rubri, crs = crs(DEM))
+FC_rubri <- projectRaster(FC_rubri, crs = crs(DEM))
+F2020 <- projectRaster(FP, crs = crs(DEM), method = "ngb")
+F2050 <- projectRaster(F2050, crs = crs(DEM), method = "ngb")
+FL <- projectRaster(FL, crs = crs(DEM), method = "ngb")
+FC <- projectRaster(FC, crs = crs(DEM), method = "ngb")
+
+
+bb <- extent(buffer)
+F2020 <- extent(F2020)
+
+FL <- crop(x = FL, y = bb)
+FH <- crop(x = FH, y = bb)
+DEM <- crop(x = DEM, y = bb)
+TRI <- crop(x = TRI, y = bb)
+
+F2050 <- crop(x = F2050, y = DEM)
+FL_prop <- crop(x = FL_prop, y = bb)
+FC_prop <- crop(x = FC_prop, y = bb)
+FL_albi <- crop(x = FL_albi, y = bb)
+FC_albi <- crop(x = FC_albi, y = bb)
+FL_allo <- crop(x = FL_allo, y = bb)
+FC_allo <- crop(x = FC_allo, y = bb)
+FL_cheiro <- crop(x = FL_cheiro, y = bb)
+FC_cheiro <- crop(x = FC_cheiro, y = bb)
+FL_hapa <- crop(x = FL_hapa, y = bb)
+FC_hapa <- crop(x = FC_hapa, y = bb)
+FL_lepi <- crop(x = FL_lepi, y = bb)
+FC_lepi <- crop(x = FC_lepi, y = bb)
+FL_micro <- crop(x = FL_micro, y = bb)
+FC_micro <- crop(x = FC_micro, y = bb)
+FL_rubri <- crop(x = FL_rubri, y = bb)
+FC_rubri <- crop(x = FC_rubri, y = bb)
+#FC_2020 <- crop(x = F2020, y = bb)
+FP <- crop(x = FP, y = FC_rubri) 
+#FPred <- crop(x = FPred, y = FL)
+
+FL <- projectRaster(FL,DEM,method = 'ngb')
+FL_prop <- projectRaster(FL_prop,DEM,method = 'bilinear')
+FC_prop <- projectRaster(FC_prop,DEM,method = 'bilinear')
+FL_albi <- projectRaster(FL_albi,DEM,method = 'bilinear')
+FC_albi <- projectRaster(FC_albi,DEM,method = 'bilinear')
+FL_allo <- projectRaster(FL_allo,DEM,method = 'bilinear')
+FC_allo <- projectRaster(FC_allo,DEM,method = 'bilinear')
+FL_avahi <- projectRaster(FL_avahi,DEM,method = 'bilinear')
+FC_avahi <- projectRaster(FC_avahi,DEM,method = 'bilinear')
+FL_cheiro <- projectRaster(FL_cheiro,DEM,method = 'bilinear')
+FC_cheiro <- projectRaster(FC_cheiro,DEM,method = 'bilinear')
+FL_micro <- projectRaster(FL_micro,DEM,method = 'bilinear')
+FC_micro <- projectRaster(FC_micro,DEM,method = 'bilinear')
+FL_hapa <- projectRaster(FL_hapa,DEM,method = 'bilinear')
+FC_hapa <- projectRaster(FC_hapa,DEM,method = 'bilinear')
+FL_lepi <- projectRaster(FL_lepi,DEM,method = 'bilinear')
+FC_lepi <- projectRaster(FC_lepi,DEM,method = 'bilinear')
+FL_rubri <- projectRaster(FL_rubri,DEM,method = 'bilinear')
+FC_rubri <- projectRaster(FC_rubri,DEM,method = 'bilinear')
+FH <- projectRaster(FH,DEM,method = 'bilinear')
+FP <- projectRaster(FP,DEM,method = "ngb")
+F2050 <- projectRaster(F2050,DEM,  method = "ngb")
+FPred <- projectRaster(FPred,DEM,  method = "ngb")
+```
+
+
+```{r covariate buffer extractions}
+############ prop covariate buffer extractions
+dist_prop <- 364.3
+r_dist <- dist_prop / 111320
+
+w_DEM_prop <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_prop <- w_DEM_prop / sum(w_DEM_prop)
+DEM_prop <- focal(DEM, w = wnorm_DEM_prop, fun = sum, na.rm = TRUE)
+
+w_TRI_prop <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_prop <- w_TRI_prop / sum(w_TRI_prop)
+TRI_prop <- focal(TRI, w = wnorm_TRI_prop, fun = sum, na.rm = TRUE)
+
+w_FH_prop <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_prop <- w_FH_prop / sum(w_FH_prop)
+FH_prop <- focal(FH, w = wnorm_FH_prop, fun = sum, na.rm = TRUE)
+
+############ albi covariate buffer extractions
+dist_albi <- 203.4
+r_dist <- dist_albi / 111320
+
+w_DEM_albi <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_albi <- w_DEM_albi / sum(w_DEM_albi)
+DEM_albi <- focal(DEM, w = wnorm_DEM_albi, fun = sum, na.rm = TRUE)
+
+w_TRI_albi <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_albi <- w_TRI_albi / sum(w_TRI_albi)
+TRI_albi <- focal(TRI, w = wnorm_TRI_albi, fun = sum, na.rm = TRUE)
+
+w_FH_albi <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_albi <- w_FH_albi / sum(w_FH_albi)
+FH_albi <- focal(FH, w = wnorm_FH_albi, fun = sum, na.rm = TRUE)
+
+############ allo covariate buffer extractions
+dist_allo <- 180.2
+r_dist <- dist_allo / 111320
+
+w_DEM_allo <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_allo <- w_DEM_allo / sum(w_DEM_allo)
+DEM_allo <- focal(DEM, w = wnorm_DEM_allo, fun = sum, na.rm = TRUE)
+
+w_TRI_allo <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_allo <- w_TRI_allo / sum(w_TRI_allo)
+TRI_allo <- focal(TRI, w = wnorm_TRI_allo, fun = sum, na.rm = TRUE)
+
+w_FH_allo <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_allo <- w_FH_allo / sum(w_FH_allo)
+FH_allo <- focal(FH, w = wnorm_FH_allo, fun = sum, na.rm = TRUE)
+
+############ cheiro covariate buffer extractions
+dist_cheiro <- 89.2
+r_dist <- dist_cheiro / 111320
+
+w_DEM_cheiro <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_cheiro <- w_DEM_cheiro / sum(w_DEM_cheiro)
+DEM_cheiro <- focal(DEM, w = wnorm_DEM_cheiro, fun = sum, na.rm = TRUE)
+
+w_TRI_cheiro <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_cheiro <- w_TRI_cheiro / sum(w_TRI_cheiro)
+TRI_cheiro <- focal(TRI, w = wnorm_TRI_cheiro, fun = sum, na.rm = TRUE)
+
+w_FH_cheiro <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_cheiro <- w_FH_cheiro / sum(w_FH_cheiro)
+FH_cheiro <- focal(FH, w = wnorm_FH_cheiro, fun = sum, na.rm = TRUE)
+
+############ micro covariate buffer extractions
+dist_micro <- 77.8
+r_dist <- dist_micro / 111320
+
+w_DEM_micro <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_micro <- w_DEM_micro / sum(w_DEM_micro)
+DEM_micro <- focal(DEM, w = wnorm_DEM_micro, fun = sum, na.rm = TRUE)
+
+w_TRI_micro <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_micro <- w_TRI_micro / sum(w_TRI_micro)
+TRI_micro <- focal(TRI, w = wnorm_TRI_micro, fun = sum, na.rm = TRUE)
+
+w_FH_micro <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_micro <- w_FH_micro / sum(w_FH_micro)
+FH_micro <- focal(FH, w = wnorm_FH_micro, fun = sum, na.rm = TRUE)
+
+############ hapa covariate buffer extractions
+dist_hapa <- 116.7
+r_dist <- dist_hapa / 111320
+
+w_DEM_hapa <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_hapa <- w_DEM_hapa / sum(w_DEM_hapa)
+DEM_hapa <- focal(DEM, w = wnorm_DEM_hapa, fun = sum, na.rm = TRUE)
+
+w_TRI_hapa <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_hapa <- w_TRI_hapa / sum(w_TRI_hapa)
+TRI_hapa <- focal(TRI, w = wnorm_TRI_hapa, fun = sum, na.rm = TRUE)
+
+w_FH_hapa <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_hapa <- w_FH_hapa / sum(w_FH_hapa)
+FH_hapa <- focal(FH, w = wnorm_FH_hapa, fun = sum, na.rm = TRUE)
+
+############ lepi covariate buffer extractions
+dist_lepi <- 43.7
+r_dist <- dist_lepi / 111320
+
+w_DEM_lepi <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_lepi <- w_DEM_lepi / sum(w_DEM_lepi)
+DEM_lepi <- focal(DEM, w = wnorm_DEM_lepi, fun = sum, na.rm = TRUE)
+
+w_TRI_lepi <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_lepi <- w_TRI_lepi / sum(w_TRI_lepi)
+TRI_lepi <- focal(TRI, w = wnorm_TRI_lepi, fun = sum, na.rm = TRUE)
+
+w_FH_lepi <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_lepi <- w_FH_lepi / sum(w_FH_lepi)
+FH_lepi <- focal(FH, w = wnorm_FH_lepi, fun = sum, na.rm = TRUE)
+
+############ rubri covariate buffer extractions
+dist_rubri <- 249.1
+r_dist <- dist_rubri / 111320
+
+w_DEM_rubri <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_rubri <- w_DEM_rubri / sum(w_DEM_rubri)
+DEM_rubri <- focal(DEM, w = wnorm_DEM_rubri, fun = sum, na.rm = TRUE)
+
+w_TRI_rubri <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_rubri <- w_TRI_rubri / sum(w_TRI_rubri)
+TRI_rubri <- focal(TRI, w = wnorm_TRI_rubri, fun = sum, na.rm = TRUE)
+
+w_FH_rubri <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_rubri <- w_FH_rubri / sum(w_FH_rubri)
+FH_rubri <- focal(FH, w = wnorm_FH_rubri, fun = sum, na.rm = TRUE)
+
+############ avahi covariate buffer extractions
+dist_avahi <- 56.4
+r_dist <- dist_avahi / 111320
+
+w_DEM_avahi <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_avahi <- w_DEM_avahi / sum(w_DEM_avahi)
+DEM_avahi <- focal(DEM, w = wnorm_DEM_avahi, fun = sum, na.rm = TRUE)
+
+w_TRI_avahi <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_avahi <- w_TRI_avahi / sum(w_TRI_avahi)
+TRI_avahi <- focal(TRI, w = wnorm_TRI_avahi, fun = sum, na.rm = TRUE)
+
+w_FH_avahi <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_avahi <- w_FH_avahi / sum(w_FH_avahi)
+FH_avahi <- focal(FH, w = wnorm_FH_avahi, fun = sum, na.rm = TRUE)
+
+
+
+```
+
+```{r stacking rasters}
+stacked_habitat <- stack(DEM,TRI,FH, FL, FL_prop, FC_prop, FL_albi, FC_albi, FL_allo, FC_allo,
+                         FL_cheiro, FC_cheiro, FL_micro, FC_micro, FL_hapa, FC_hapa, FL_lepi, FC_lepi, FL_rubri, FC_rubri, FL_avahi, FC_avahi, FP, F2050,DEM_prop, TRI_prop, FH_prop, DEM_albi, TRI_albi, FH_albi, DEM_allo, TRI_allo, FH_allo, DEM_cheiro, TRI_cheiro, FH_cheiro, DEM_micro, TRI_micro, FH_micro, DEM_hapa, TRI_hapa, FH_hapa, DEM_lepi, TRI_lepi, FH_lepi, DEM_rubri, TRI_rubri, FH_rubri, DEM_avahi, TRI_avahi, FH_avahi )
+names(stacked_habitat) <- c("Band.1.1", "Band.1.2", "Layer_1", "ForestLoss", "Band_1.1", "Band_1.2", "Band_1.3", "Band_1.4", "Band_1.5", "Band_1.6", "Band_1.7", "Band_1.8", "Band_1.9", "Band_1.10", "Band_1.11", "Band_1.12", "Band_1.13", "Band_1.14", "Band_1.15", "Band_1.16", "Band_1.17","Band_1.18", "ForestTot", "fcc_2050_AFR_aea", "DEM_prop", "TRI_prop", "FH_prop", "DEM_albi", "TRI_albi", "FH_albi", "DEM_allo", "TRI_allo", "FH_allo", "DEM_cheiro", "TRI_cheiro", "FH_cheiro", "DEM_micro", "TRI_micro", "FH_micro", "DEM_hapa", "TRI_hapa", "FH_hapa", "DEM_lepi", "TRI_lepi", "FH_lepi", "DEM_rubri", "TRI_rubri", "FH_rubri", "DEM_avahi", "TRI_avahi", "FH_avahi" )
+
+values(stacked_habitat$Band_1.1)[values(stacked_habitat$Band_1.1)<0] <-0
+values(stacked_habitat$Band_1.2)[values(stacked_habitat$Band_1.2)<0] <-0
+values(stacked_habitat$Band_1.3)[values(stacked_habitat$Band_1.3)<0] <-0
+values(stacked_habitat$Band_1.4)[values(stacked_habitat$Band_1.4)<0] <-0
+values(stacked_habitat$Band_1.5)[values(stacked_habitat$Band_1.5)<0] <-0
+values(stacked_habitat$Band_1.6)[values(stacked_habitat$Band_1.6)<0] <-0
+values(stacked_habitat$Band_1.7)[values(stacked_habitat$Band_1.7)<0] <-0
+values(stacked_habitat$Band_1.8)[values(stacked_habitat$Band_1.8)<0] <-0
+values(stacked_habitat$Band_1.9)[values(stacked_habitat$Band_1.9)<0] <-0
+values(stacked_habitat$Band_1.10)[values(stacked_habitat$Band_1.10)<0] <-0
+values(stacked_habitat$Band_1.11)[values(stacked_habitat$Band_1.11)<0] <-0
+values(stacked_habitat$Band_1.12)[values(stacked_habitat$Band_1.12)<0] <-0
+values(stacked_habitat$Band_1.13)[values(stacked_habitat$Band_1.13)<0] <-0
+values(stacked_habitat$Band_1.14)[values(stacked_habitat$Band_1.14)<0] <-0
+values(stacked_habitat$Band_1.15)[values(stacked_habitat$Band_1.15)<0] <-0
+values(stacked_habitat$Band_1.16)[values(stacked_habitat$Band_1.16)<0] <-0
+values(stacked_habitat$Band_1.17)[values(stacked_habitat$Band_1.17)<0] <-0
+values(stacked_habitat$Band_1.18)[values(stacked_habitat$Band_1.18)<0] <-0
+
+stacked_habitat$FLP_prop2 <- stacked_habitat$Band_1.1 / stacked_habitat$Band_1.2
+stacked_habitat$FLP_prop <- stacked_habitat$Band_1.1 / stacked_habitat$Band_1.2
+stacked_habitat$FLP_albi <- stacked_habitat$Band_1.3 / stacked_habitat$Band_1.4
+stacked_habitat$FLP_allo <- stacked_habitat$Band_1.5 / stacked_habitat$Band_1.6
+stacked_habitat$FLP_cheiro <- stacked_habitat$Band_1.7 / stacked_habitat$Band_1.8
+stacked_habitat$FLP_micro <- stacked_habitat$Band_1.9 / stacked_habitat$Band_1.10
+stacked_habitat$FLP_hapa <- stacked_habitat$Band_1.11 / stacked_habitat$Band_1.12
+stacked_habitat$FLP_lepi <- stacked_habitat$Band_1.13 / stacked_habitat$Band_1.14
+stacked_habitat$FLP_rubri <- stacked_habitat$Band_1.15 / stacked_habitat$Band_1.16
+stacked_habitat$FLP_avahi <- stacked_habitat$Band_1.17 / stacked_habitat$Band_1.18
+
+values(stacked_habitat$FLP_prop2)[values(stacked_habitat$FLP_prop2)>1] <-1
+values(stacked_habitat$FLP_prop)[values(stacked_habitat$FLP_prop)>1] <-1
+values(stacked_habitat$FLP_albi)[values(stacked_habitat$FLP_albi)>1] <-1
+values(stacked_habitat$FLP_allo)[values(stacked_habitat$FLP_allo)>1] <-1
+values(stacked_habitat$FLP_cheiro)[values(stacked_habitat$FLP_cheiro)>1] <-1
+values(stacked_habitat$FLP_micro)[values(stacked_habitat$FLP_micro)>1] <-1
+values(stacked_habitat$FLP_hapa)[values(stacked_habitat$FLP_hapa)>1] <-1
+values(stacked_habitat$FLP_lepi)[values(stacked_habitat$FLP_lepi)>1] <-1
+values(stacked_habitat$FLP_rubri)[values(stacked_habitat$FLP_rubri)>1] <-1
+values(stacked_habitat$FLP_avahi)[values(stacked_habitat$FLP_avahi)>1] <-1
+
+stacked_habitat$Layer_1[stacked_habitat$Layer_1<0] <- 0
+
+#Clamping
+habitat2 <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/habitat_covs.csv")
+
+values(stacked_habitat$Band.1.1)[values(stacked_habitat$Band.1.1)<min(habitat2$Elevation)]<- min(habitat2$Elevation)
+
+values(stacked_habitat$Band.1.1)[values(stacked_habitat$Band.1.1)>max(habitat2$Elevation)]<- max(habitat2$Elevation)
+
+values(stacked_habitat$Band.1.2)[values(stacked_habitat$Band.1.2)<min(habitat2$Ruggedness)]<- min(habitat2$Ruggedness)
+
+values(stacked_habitat$Band.1.2)[values(stacked_habitat$Band.1.2)>max(habitat2$Ruggedness)]<- max(habitat2$Ruggedness)
+
+values(stacked_habitat$Layer_1)[values(stacked_habitat$Layer_1)<min(habitat2$CanopyHeight)]<- min(habitat2$CanopyHeight)
+
+values(stacked_habitat$Layer_1)[values(stacked_habitat$Layer_1)>max(habitat2$CanopyHeight)]<- max(habitat2$CanopyHeight)
+
+
+values(stacked_habitat$FLP_allo)[values(stacked_habitat$FLP_allo)<min(habitat2$ForestLossProp[habitat2$Species=="Allocebus_trichotis"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$FLP_allo)[values(stacked_habitat$FLP_allo)>max(habitat2$ForestLossProp[habitat2$Species=="Allocebus_trichotis"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$FLP_albi)[values(stacked_habitat$FLP_albi)<min(habitat2$ForestLossProp[habitat2$Species=="Eulemur_albifrons"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$FLP_albi)[values(stacked_habitat$FLP_albi)>max(habitat2$ForestLossProp[habitat2$Species=="Eulemur_albifrons"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$FLP_avahi)[values(stacked_habitat$FLP_avahi)<min(habitat2$ForestLossProp[habitat2$Species=="Avahi_laniger"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$FLP_avahi)[values(stacked_habitat$FLP_avahi)>max(habitat2$ForestLossProp[habitat2$Species=="Avahi_laniger"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$FLP_lepi)[values(stacked_habitat$FLP_lepi)<min(habitat2$ForestLossProp[habitat2$Species=="Lepilemur_saeli"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$FLP_lepi)[values(stacked_habitat$FLP_lepi)>max(habitat2$ForestLossProp[habitat2$Species=="Lepilemur_saeli"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$FLP_cheiro)[values(stacked_habitat$FLP_cheiro)<min(habitat2$ForestLossProp[habitat2$Species=="Cheirogaleus_crossleyi"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$FLP_cheiro)[values(stacked_habitat$FLP_cheiro)>max(habitat2$ForestLossProp[habitat2$Species=="Cheirogaleus_crossleyi"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$FLP_micro)[values(stacked_habitat$FLP_micro)<min(habitat2$ForestLossProp[habitat2$Species=="Microcebus_lehilahytsara"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$FLP_micro)[values(stacked_habitat$FLP_micro)>max(habitat2$ForestLossProp[habitat2$Species=="Microcebus_lehilahytsara"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$FLP_hapa)[values(stacked_habitat$FLP_hapa)<min(habitat2$ForestLossProp[habitat2$Species=="Hapalemur_occidentalis"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$FLP_hapa)[values(stacked_habitat$FLP_hapa)>max(habitat2$ForestLossProp[habitat2$Species=="Hapalemur_occidentalis"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$FLP_prop)[values(stacked_habitat$FLP_prop)<min(habitat2$ForestLossProp[habitat2$Species=="Propithecus_candidus"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$FLP_prop)[values(stacked_habitat$FLP_prop)>max(habitat2$ForestLossProp[habitat2$Species=="Propithecus_candidus"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$FLP_rubri)[values(stacked_habitat$FLP_rubri)<min(habitat2$ForestLossProp[habitat2$Species=="Eulemur_rubriventer"])]<- min(habitat2$ForestLossProp[habitat2$Species=="Eulemur_rubriventer"])
+
+values(stacked_habitat$FLP_rubri)[values(stacked_habitat$FLP_rubri)>max(habitat2$ForestLossProp[habitat2$Species=="Eulemur_rubriventer"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Eulemur_rubriventer"])
+
+####
+values(stacked_habitat$FH_allo)[values(stacked_habitat$FH_allo)<min(habitat2$CanopyHeight[habitat2$Species=="Allocebus_trichotis"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$FH_allo)[values(stacked_habitat$FH_allo)>max(habitat2$CanopyHeight[habitat2$Species=="Allocebus_trichotis"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$FH_albi)[values(stacked_habitat$FH_albi)<min(habitat2$CanopyHeight[habitat2$Species=="Eulemur_albifrons"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$FH_albi)[values(stacked_habitat$FH_albi)>max(habitat2$CanopyHeight[habitat2$Species=="Eulemur_albifrons"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$FH_avahi)[values(stacked_habitat$FH_avahi)<min(habitat2$CanopyHeight[habitat2$Species=="Avahi_laniger"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$FH_avahi)[values(stacked_habitat$FH_avahi)>max(habitat2$CanopyHeight[habitat2$Species=="Avahi_laniger"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$FH_lepi)[values(stacked_habitat$FH_lepi)<min(habitat2$CanopyHeight[habitat2$Species=="Lepilemur_saeli"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$FH_lepi)[values(stacked_habitat$FH_lepi)>max(habitat2$CanopyHeight[habitat2$Species=="Lepilemur_saeli"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$FH_cheiro)[values(stacked_habitat$FH_cheiro)<min(habitat2$CanopyHeight[habitat2$Species=="Cheirogaleus_crossleyi"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$FH_cheiro)[values(stacked_habitat$FH_cheiro)>max(habitat2$CanopyHeight[habitat2$Species=="Cheirogaleus_crossleyi"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$FH_micro)[values(stacked_habitat$FH_micro)<min(habitat2$CanopyHeight[habitat2$Species=="Microcebus_lehilahytsara"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$FH_micro)[values(stacked_habitat$FH_micro)>max(habitat2$CanopyHeight[habitat2$Species=="Microcebus_lehilahytsara"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$FH_hapa)[values(stacked_habitat$FH_hapa)<min(habitat2$CanopyHeight[habitat2$Species=="Hapalemur_occidentalis"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$FH_hapa)[values(stacked_habitat$FH_hapa)>max(habitat2$CanopyHeight[habitat2$Species=="Hapalemur_occidentalis"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$FH_prop)[values(stacked_habitat$FH_prop)<min(habitat2$CanopyHeight[habitat2$Species=="Propithecus_candidus"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$FH_prop)[values(stacked_habitat$FH_prop)>max(habitat2$CanopyHeight[habitat2$Species=="Propithecus_candidus"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$FH_rubri)[values(stacked_habitat$FH_rubri)<min(habitat2$CanopyHeight[habitat2$Species=="Eulemur_rubriventer"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Eulemur_rubriventer"])
+
+values(stacked_habitat$FH_rubri)[values(stacked_habitat$FH_rubri)>max(habitat2$CanopyHeight[habitat2$Species=="Eulemur_rubriventer"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Eulemur_rubriventer"])
+
+####
+values(stacked_habitat$TRI_allo)[values(stacked_habitat$TRI_allo)<min(habitat2$Ruggedness[habitat2$Species=="Allocebus_trichotis"])]<- min(habitat2$Ruggedness[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$TRI_allo)[values(stacked_habitat$TRI_allo)>max(habitat2$Ruggedness[habitat2$Species=="Allocebus_trichotis"])]<- max(habitat2$Ruggedness[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$TRI_albi)[values(stacked_habitat$TRI_albi)<min(habitat2$Ruggedness[habitat2$Species=="Eulemur_albifrons"])]<- min(habitat2$Ruggedness[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$TRI_albi)[values(stacked_habitat$TRI_albi)>max(habitat2$Ruggedness[habitat2$Species=="Eulemur_albifrons"])]<- max(habitat2$Ruggedness[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$TRI_avahi)[values(stacked_habitat$TRI_avahi)<min(habitat2$Ruggedness[habitat2$Species=="Avahi_laniger"])]<- min(habitat2$Ruggedness[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$TRI_avahi)[values(stacked_habitat$TRI_avahi)>max(habitat2$Ruggedness[habitat2$Species=="Avahi_laniger"])]<- max(habitat2$Ruggedness[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$TRI_lepi)[values(stacked_habitat$TRI_lepi)<min(habitat2$Ruggedness[habitat2$Species=="Lepilemur_saeli"])]<- min(habitat2$Ruggedness[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$TRI_lepi)[values(stacked_habitat$TRI_lepi)>max(habitat2$Ruggedness[habitat2$Species=="Lepilemur_saeli"])]<- max(habitat2$Ruggedness[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$TRI_cheiro)[values(stacked_habitat$TRI_cheiro)<min(habitat2$Ruggedness[habitat2$Species=="Cheirogaleus_crossleyi"])]<- min(habitat2$Ruggedness[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$TRI_cheiro)[values(stacked_habitat$TRI_cheiro)>max(habitat2$Ruggedness[habitat2$Species=="Cheirogaleus_crossleyi"])]<- max(habitat2$Ruggedness[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$TRI_micro)[values(stacked_habitat$TRI_micro)<min(habitat2$Ruggedness[habitat2$Species=="Microcebus_lehilahytsara"])]<- min(habitat2$Ruggedness[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$TRI_micro)[values(stacked_habitat$TRI_micro)>max(habitat2$Ruggedness[habitat2$Species=="Microcebus_lehilahytsara"])]<- max(habitat2$Ruggedness[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$TRI_hapa)[values(stacked_habitat$TRI_hapa)<min(habitat2$Ruggedness[habitat2$Species=="Hapalemur_occidentalis"])]<- min(habitat2$Ruggedness[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$TRI_hapa)[values(stacked_habitat$TRI_hapa)>max(habitat2$Ruggedness[habitat2$Species=="Hapalemur_occidentalis"])]<- max(habitat2$Ruggedness[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$TRI_prop)[values(stacked_habitat$TRI_prop)<min(habitat2$Ruggedness[habitat2$Species=="Propithecus_candidus"])]<- min(habitat2$Ruggedness[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$TRI_prop)[values(stacked_habitat$TRI_prop)>max(habitat2$Ruggedness[habitat2$Species=="Propithecus_candidus"])]<- max(habitat2$Ruggedness[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$TRI_rubri)[values(stacked_habitat$TRI_rubri)<min(habitat2$Ruggedness[habitat2$Species=="Eulemur_rubriventer"])]<- min(habitat2$Ruggedness[habitat2$Species=="Eulemur_rubriventer"])
+
+values(stacked_habitat$TRI_rubri)[values(stacked_habitat$TRI_rubri)>max(habitat2$Ruggedness[habitat2$Species=="Eulemur_rubriventer"])]<- max(habitat2$Ruggedness[habitat2$Species=="Eulemur_rubriventer"])
+####
+values(stacked_habitat$DEM_allo)[values(stacked_habitat$DEM_allo)<min(habitat2$Elevation[habitat2$Species=="Allocebus_trichotis"])]<- min(habitat2$Elevation[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$DEM_allo)[values(stacked_habitat$DEM_allo)>max(habitat2$Elevation[habitat2$Species=="Allocebus_trichotis"])]<- max(habitat2$Elevation[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$DEM_albi)[values(stacked_habitat$DEM_albi)<min(habitat2$Elevation[habitat2$Species=="Eulemur_albifrons"])]<- min(habitat2$Elevation[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$DEM_albi)[values(stacked_habitat$DEM_albi)>max(habitat2$Elevation[habitat2$Species=="Eulemur_albifrons"])]<- max(habitat2$Elevation[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$DEM_avahi)[values(stacked_habitat$DEM_avahi)<min(habitat2$Elevation[habitat2$Species=="Avahi_laniger"])]<- min(habitat2$Elevation[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$DEM_avahi)[values(stacked_habitat$DEM_avahi)>max(habitat2$Elevation[habitat2$Species=="Avahi_laniger"])]<- max(habitat2$Elevation[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$DEM_lepi)[values(stacked_habitat$DEM_lepi)<min(habitat2$Elevation[habitat2$Species=="Lepilemur_saeli"])]<- min(habitat2$Elevation[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$DEM_lepi)[values(stacked_habitat$DEM_lepi)>max(habitat2$Elevation[habitat2$Species=="Lepilemur_saeli"])]<- max(habitat2$Elevation[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$DEM_cheiro)[values(stacked_habitat$DEM_cheiro)<min(habitat2$Elevation[habitat2$Species=="Cheirogaleus_crossleyi"])]<- min(habitat2$Elevation[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$DEM_cheiro)[values(stacked_habitat$DEM_cheiro)>max(habitat2$Elevation[habitat2$Species=="Cheirogaleus_crossleyi"])]<- max(habitat2$Elevation[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$DEM_micro)[values(stacked_habitat$DEM_micro)<min(habitat2$Elevation[habitat2$Species=="Microcebus_lehilahytsara"])]<- min(habitat2$Elevation[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$DEM_micro)[values(stacked_habitat$DEM_micro)>max(habitat2$Elevation[habitat2$Species=="Microcebus_lehilahytsara"])]<- max(habitat2$Elevation[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$DEM_hapa)[values(stacked_habitat$DEM_hapa)<min(habitat2$Elevation[habitat2$Species=="Hapalemur_occidentalis"])]<- min(habitat2$Elevation[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$DEM_hapa)[values(stacked_habitat$DEM_hapa)>max(habitat2$Elevation[habitat2$Species=="Hapalemur_occidentalis"])]<- max(habitat2$Elevation[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$DEM_prop)[values(stacked_habitat$DEM_prop)<min(habitat2$Elevation[habitat2$Species=="Propithecus_candidus"])]<- min(habitat2$Elevation[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$DEM_prop)[values(stacked_habitat$DEM_prop)>max(habitat2$Elevation[habitat2$Species=="Propithecus_candidus"])]<- max(habitat2$Elevation[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$DEM_rubri)[values(stacked_habitat$DEM_rubri)<min(habitat2$Elevation[habitat2$Species=="Eulemur_rubriventer"])]<- min(habitat2$Elevation[habitat2$Species=="Eulemur_rubriventer"])
+
+values(stacked_habitat$DEM_rubri)[values(stacked_habitat$DEM_rubri)>max(habitat2$Elevation[habitat2$Species=="Eulemur_rubriventer"])]<- max(habitat2$Elevation[habitat2$Species=="Eulemur_rubriventer"])
+
+```
+
+
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 #README
-#Need to run the first 3 chunks of 04_SpatialPredictions before this to load spatial variables
 #I have commented out the code to write new tables of 1000 randomized values
 #if you dont want to wait to re-run everything 1000 times, just run each chunk up until the loop, skip the loop, and then run the line of code that reads the loop output from a csv file instead of running it again
 
@@ -47,9 +619,9 @@ prop_coefficients <- prop_coefficients[, sort(colnames(prop_coefficients))]
 
 
 coefs <-prop_coefficients
-pred_prop <- ((coefs$Ruggedness[1]/prop_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - prop_Ruggedness_mean)) +
-               ((coefs$Elevation/prop_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - prop_Elevation_mean)) +
-               ((coefs$CanopyHeight/prop_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - prop_CanopyHeight_mean)) +
+pred_prop <- ((coefs$Ruggedness[1]/prop_Ruggedness_sd) * (stacked_habitat[["TRI_prop"]] - prop_Ruggedness_mean)) +
+               ((coefs$Elevation/prop_Elevation_sd) * (stacked_habitat[["DEM_prop"]]  - prop_Elevation_mean)) +
+               ((coefs$CanopyHeight/prop_CanopyHeight_sd) * (stacked_habitat[["FH_prop"]]  - prop_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/prop_FLP_sd) * (stacked_habitat[["FLP_prop"]] - prop_FLP_mean))  +
                coefs$`(Intercept)`
  
@@ -100,14 +672,14 @@ coef_Elev_prop<-  rnorm(1000, mean=-0.18010  , sd=0.23312)
 coefs_prop_test <- data.frame(Intercept=coef_Intercept_prop,ForestLossProp=coef_FLP_prop, CanopyHeight=coef_CH_prop, Ruggedness = coef_Rug_prop, Elevation=coef_Elev_prop)
 
 #Loop Time!
-prop_predictions <- matrix(NA, nrow = 1000, ncol = 4)
-for (i in 1:1000) {
+prop_predictions <- matrix(NA, nrow = 150, ncol = 4)
+for (i in 1:150) {
  
   coefs <-coefs_prop_test[i,]
 
- pred_prop <- ((coefs$Ruggedness[1]/prop_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - prop_Ruggedness_mean)) +
-               ((coefs$Elevation/prop_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - prop_Elevation_mean)) +
-               ((coefs$CanopyHeight/prop_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - prop_CanopyHeight_mean)) +
+ pred_prop <- ((coefs$Ruggedness[1]/prop_Ruggedness_sd) * (stacked_habitat[["TRI_prop"]] - prop_Ruggedness_mean)) +
+               ((coefs$Elevation/prop_Elevation_sd) * (stacked_habitat[["DEM_prop"]]  - prop_Elevation_mean)) +
+               ((coefs$CanopyHeight/prop_CanopyHeight_sd) * (stacked_habitat[["FH_prop"]]  - prop_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/prop_FLP_sd) * (stacked_habitat[["FLP_prop"]] - prop_FLP_mean))  +
                coefs$Intercept
  
@@ -148,10 +720,10 @@ prop_predictions2 <- data.frame(prop_predictions)
 colnames(prop_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
 #write.csv(prop_predictions2 ,"prop_predictions2.csv")
-prop_predictions2 <- read.csv("prop_predictions2.csv")
+#prop_predictions2 <- read.csv("prop_predictions2.csv")
 
 ggplot(prop_predictions2, aes(x=PA2020)) + ggtitle("Prop")+ 
-  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=prop_pointestimates[2] ),
+  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=prop_pointestimates[2,] ),
             color="blue", size=1)+
   geom_vline(aes(xintercept=mean(na.omit(prop_predictions2$PA2020)) ),
             color="black", size=1)+
@@ -189,9 +761,9 @@ rubri_coefficients <- rubri_coefficients[, sort(colnames(rubri_coefficients))]
 
   coefs <-rubri_coefficients
 
- pred_rubri <- ((coefs$Ruggedness[1]/rubri_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - rubri_Ruggedness_mean)) +
-               ((coefs$Elevation/rubri_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - rubri_Elevation_mean)) +
-               ((coefs$CanopyHeight/rubri_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - rubri_CanopyHeight_mean)) +
+ pred_rubri <- ((coefs$Ruggedness[1]/rubri_Ruggedness_sd) * (stacked_habitat[["TRI_rubri"]] - rubri_Ruggedness_mean)) +
+               ((coefs$Elevation/rubri_Elevation_sd) * (stacked_habitat[["DEM_rubri"]]  - rubri_Elevation_mean)) +
+               ((coefs$CanopyHeight/rubri_CanopyHeight_sd) * (stacked_habitat[["FH_rubri"]]  - rubri_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/rubri_FLP_sd) * (stacked_habitat[["FLP_rubri"]] - rubri_FLP_mean))  +
                coefs$`(Intercept)`
  
@@ -245,14 +817,14 @@ coef_Elev_rubri<-  rnorm(1000, mean=0.06248 , sd=0.33894)
 coefs_rubri_test <- data.frame(Intercept=coef_Intercept_rubri,ForestLossProp=coef_FLP_rubri, CanopyHeight=coef_CH_rubri, Ruggedness = coef_Rug_rubri, Elevation=coef_Elev_rubri)
 
 
-rubri_predictions <- matrix(NA, nrow = 1000, ncol = 4)
-for (i in 1:1000) {
+rubri_predictions <- matrix(NA, nrow = 10, ncol = 4)
+for (i in 1:10) {
  
   coefs <-coefs_rubri_test[i,]
 
- pred_rubri <- ((coefs$Ruggedness[1]/rubri_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - rubri_Ruggedness_mean)) +
-               ((coefs$Elevation/rubri_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - rubri_Elevation_mean)) +
-               ((coefs$CanopyHeight/rubri_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - rubri_CanopyHeight_mean)) +
+ pred_rubri <- ((coefs$Ruggedness[1]/rubri_Ruggedness_sd) * (stacked_habitat[["TRI_rubri"]] - rubri_Ruggedness_mean)) +
+               ((coefs$Elevation/rubri_Elevation_sd) * (stacked_habitat[["DEM_rubri"]]  - rubri_Elevation_mean)) +
+               ((coefs$CanopyHeight/rubri_CanopyHeight_sd) * (stacked_habitat[["FH_rubri"]]  - rubri_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/rubri_FLP_sd) * (stacked_habitat[["FLP_rubri"]] - rubri_FLP_mean))  +
                coefs$Intercept
  
@@ -295,7 +867,7 @@ rubri_predictions2 <- data.frame(rubri_predictions)
 colnames(rubri_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
 #write.csv(rubri_predictions2 ,"rubri_predictions2.csv")
-rubri_predictions2 <- read.csv("rubri_predictions2.csv")
+#rubri_predictions2 <- read.csv("rubri_predictions2.csv")
 
 ggplot(rubri_predictions2, aes(x=PA2020)) + 
   geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=rubri_pointestimates[2] ),
@@ -336,9 +908,9 @@ albi_coefficients <- albi_coefficients[, sort(colnames(albi_coefficients))]
 
   coefs <-albi_coefficients
 
- pred_albi <- ((coefs$Ruggedness[1]/albi_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - albi_Ruggedness_mean)) +
-               ((coefs$Elevation/albi_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - albi_Elevation_mean)) +
-               ((coefs$CanopyHeight/albi_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - albi_CanopyHeight_mean)) +
+ pred_albi <- ((coefs$Ruggedness[1]/albi_Ruggedness_sd) * (stacked_habitat[["TRI_albi"]] - albi_Ruggedness_mean)) +
+               ((coefs$Elevation/albi_Elevation_sd) * (stacked_habitat[["DEM_albi"]]  - albi_Elevation_mean)) +
+               ((coefs$CanopyHeight/albi_CanopyHeight_sd) * (stacked_habitat[["FH_albi"]]  - albi_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/albi_FLP_sd) * (stacked_habitat[["FLP_albi"]] - albi_FLP_mean))  +
                coefs$`(Intercept)`
  
@@ -392,14 +964,14 @@ coef_Elev_albi<-  rnorm(1000, mean=0.69973  , sd=0.78580)
 coefs_albi_test <- data.frame(Intercept=coef_Intercept_albi,ForestLossProp=coef_FLP_albi, CanopyHeight=coef_CH_albi, Ruggedness = coef_Rug_albi, Elevation=coef_Elev_albi)
 
 
-albi_predictions <- matrix(NA, nrow = 1000, ncol = 4)
-for (i in 1:1000) {
+albi_predictions <- matrix(NA, nrow = 10, ncol = 4)
+for (i in 1:10) {
  
   coefs <-coefs_albi_test[i,]
 
- pred_albi <- ((coefs$Ruggedness[1]/albi_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - albi_Ruggedness_mean)) +
-               ((coefs$Elevation/albi_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - albi_Elevation_mean)) +
-               ((coefs$CanopyHeight/albi_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - albi_CanopyHeight_mean)) +
+ pred_albi <- ((coefs$Ruggedness[1]/albi_Ruggedness_sd) * (stacked_habitat[["TRI_albi"]] - albi_Ruggedness_mean)) +
+               ((coefs$Elevation/albi_Elevation_sd) * (stacked_habitat[["DEM_albi"]]  - albi_Elevation_mean)) +
+               ((coefs$CanopyHeight/albi_CanopyHeight_sd) * (stacked_habitat[["FH_albi"]]  - albi_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/albi_FLP_sd) * (stacked_habitat[["FLP_albi"]] - albi_FLP_mean))  +
                coefs$Intercept
  
@@ -443,7 +1015,7 @@ albi_predictions2 <- data.frame(albi_predictions)
 colnames(albi_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
 #write.csv(albi_predictions2 ,"albi_predictions2.csv")
-albi_predictions2 <- read.csv("albi_predictions2.csv")
+#albi_predictions2 <- read.csv("albi_predictions2.csv")
 
 ggplot(albi_predictions2, aes(x=PA2020)) + ggtitle("Albi") +
   geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=albi_pointestimates[2] ),
@@ -487,9 +1059,9 @@ cheiro_coefficients <- cheiro_coefficients[, sort(colnames(cheiro_coefficients))
 
   coefs <-cheiro_coefficients
 
- pred_cheiro <- ((coefs$Ruggedness[1]/cheiro_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - cheiro_Ruggedness_mean)) +
-               ((coefs$Elevation/cheiro_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - cheiro_Elevation_mean)) +
-               ((coefs$CanopyHeight/cheiro_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - cheiro_CanopyHeight_mean)) +
+ pred_cheiro <- ((coefs$Ruggedness[1]/cheiro_Ruggedness_sd) * (stacked_habitat[["TRI_cheiro"]] - cheiro_Ruggedness_mean)) +
+               ((coefs$Elevation/cheiro_Elevation_sd) * (stacked_habitat[["DEM_cheiro"]]  - cheiro_Elevation_mean)) +
+               ((coefs$CanopyHeight/cheiro_CanopyHeight_sd) * (stacked_habitat[["FH_cheiro"]]  - cheiro_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/cheiro_FLP_sd) * (stacked_habitat[["FLP_cheiro"]] - cheiro_FLP_mean))  +
                coefs$`(Intercept)`
  
@@ -543,14 +1115,14 @@ coef_Elev_cheiro<-  rnorm(1000, mean=-0.01926  , sd=0.50870 )
 coefs_cheiro_test <- data.frame(Intercept=coef_Intercept_cheiro,ForestLossProp=coef_FLP_cheiro, CanopyHeight=coef_CH_cheiro, Ruggedness = coef_Rug_cheiro, Elevation=coef_Elev_cheiro)
 
 
-cheiro_predictions <- matrix(NA, nrow = 1000, ncol = 4)
-for (i in 1:1000) {
+cheiro_predictions <- matrix(NA, nrow = 10, ncol = 4)
+for (i in 1:10) {
  
   coefs <-coefs_cheiro_test[i,]
 
- pred_cheiro <- ((coefs$Ruggedness[1]/cheiro_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - cheiro_Ruggedness_mean)) +
-               ((coefs$Elevation/cheiro_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - cheiro_Elevation_mean)) +
-               ((coefs$CanopyHeight/cheiro_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - cheiro_CanopyHeight_mean)) +
+ pred_cheiro <- ((coefs$Ruggedness[1]/cheiro_Ruggedness_sd) * (stacked_habitat[["TRI_cheiro"]] - cheiro_Ruggedness_mean)) +
+               ((coefs$Elevation/cheiro_Elevation_sd) * (stacked_habitat[["DEM_cheiro"]]  - cheiro_Elevation_mean)) +
+               ((coefs$CanopyHeight/cheiro_CanopyHeight_sd) * (stacked_habitat[["FH_cheiro"]]  - cheiro_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/cheiro_FLP_sd) * (stacked_habitat[["FLP_cheiro"]] - cheiro_FLP_mean))  +
                coefs$Intercept
  
@@ -594,7 +1166,7 @@ cheiro_predictions2 <- data.frame(cheiro_predictions)
 colnames(cheiro_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
 #write.csv(cheiro_predictions2 ,"cheiro_predictions2.csv")
-cheiro_predictions2 <- read.csv("cheiro_predictions2.csv")
+#cheiro_predictions2 <- read.csv("cheiro_predictions2.csv")
 
 ggplot(cheiro_predictions2, aes(x=PA2020)) + ggtitle("Cheiro")+
   geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=cheiro_pointestimates[2] ),
@@ -635,9 +1207,9 @@ micro_coefficients <- micro_coefficients[, sort(colnames(micro_coefficients))]
 
   coefs <-micro_coefficients
 
- pred_micro <- ((coefs$Ruggedness[1]/micro_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - micro_Ruggedness_mean)) +
-               ((coefs$Elevation/micro_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - micro_Elevation_mean)) +
-               ((coefs$CanopyHeight/micro_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - micro_CanopyHeight_mean)) +
+ pred_micro <- ((coefs$Ruggedness[1]/micro_Ruggedness_sd) * (stacked_habitat[["TRI_micro"]] - micro_Ruggedness_mean)) +
+               ((coefs$Elevation/micro_Elevation_sd) * (stacked_habitat[["DEM_micro"]]  - micro_Elevation_mean)) +
+               ((coefs$CanopyHeight/micro_CanopyHeight_sd) * (stacked_habitat[["FH_micro"]]  - micro_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/micro_FLP_sd) * (stacked_habitat[["FLP_micro"]] - micro_FLP_mean))  +
                coefs$`(Intercept)`
  
@@ -691,14 +1263,14 @@ coef_Elev_micro<-  rnorm(1000, mean=0.58976  , sd=0.85575)
 coefs_micro_test <- data.frame(Intercept=coef_Intercept_micro,ForestLossProp=coef_FLP_micro, CanopyHeight=coef_CH_micro, Ruggedness = coef_Rug_micro, Elevation=coef_Elev_micro)
 
 
-micro_predictions <- matrix(NA, nrow = 1000, ncol = 4)
-for (i in 1:1000) {
+micro_predictions <- matrix(NA, nrow = 10, ncol = 4)
+for (i in 1:10) {
  
   coefs <-coefs_micro_test[i,]
 
- pred_micro <- ((coefs$Ruggedness[1]/micro_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - micro_Ruggedness_mean)) +
-               ((coefs$Elevation/micro_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - micro_Elevation_mean)) +
-               ((coefs$CanopyHeight/micro_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - micro_CanopyHeight_mean)) +
+ pred_micro <- ((coefs$Ruggedness[1]/micro_Ruggedness_sd) * (stacked_habitat[["TRI_micro"]] - micro_Ruggedness_mean)) +
+               ((coefs$Elevation/micro_Elevation_sd) * (stacked_habitat[["DEM_micro"]]  - micro_Elevation_mean)) +
+               ((coefs$CanopyHeight/micro_CanopyHeight_sd) * (stacked_habitat[["FH_micro"]]  - micro_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/micro_FLP_sd) * (stacked_habitat[["FLP_micro"]] - micro_FLP_mean))  +
                coefs$Intercept
  
@@ -742,7 +1314,7 @@ micro_predictions2 <- data.frame(micro_predictions)
 colnames(micro_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
 #write.csv(micro_predictions2 ,"micro_predictions2.csv")
-micro_predictions2 <- read.csv("micro_predictions2.csv")
+#micro_predictions2 <- read.csv("micro_predictions2.csv")
 
 ggplot(micro_predictions2, aes(x=PA2020)) + ggtitle("Micro")+
   geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=micro_pointestimates[2] ),
@@ -783,9 +1355,9 @@ lepi_coefficients <- lepi_coefficients[, sort(colnames(lepi_coefficients))]
 
   coefs <-lepi_coefficients
 
- pred_lepi <- ((coefs$Ruggedness[1]/lepi_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - lepi_Ruggedness_mean)) +
-               ((coefs$Elevation/lepi_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - lepi_Elevation_mean)) +
-               ((coefs$CanopyHeight/lepi_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - lepi_CanopyHeight_mean)) +
+ pred_lepi <- ((coefs$Ruggedness[1]/lepi_Ruggedness_sd) * (stacked_habitat[["TRI_lepi"]] - lepi_Ruggedness_mean)) +
+               ((coefs$Elevation/lepi_Elevation_sd) * (stacked_habitat[["DEM_lepi"]]  - lepi_Elevation_mean)) +
+               ((coefs$CanopyHeight/lepi_CanopyHeight_sd) * (stacked_habitat[["FH_lepi"]]  - lepi_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/lepi_FLP_sd) * (stacked_habitat[["FLP_lepi"]] - lepi_FLP_mean))  +
                coefs$`(Intercept)`
  
@@ -839,14 +1411,14 @@ coef_Elev_lepi<-  rnorm(1000, mean=-0.17120  , sd=0.38514 )
 coefs_lepi_test <- data.frame(Intercept=coef_Intercept_lepi,ForestLossProp=coef_FLP_lepi, CanopyHeight=coef_CH_lepi, Ruggedness = coef_Rug_lepi, Elevation=coef_Elev_lepi)
 
 
-lepi_predictions <- matrix(NA, nrow = 1000, ncol = 4)
-for (i in 1:1000) {
+lepi_predictions <- matrix(NA, nrow = 10, ncol = 4)
+for (i in 1:10) {
  
   coefs <-coefs_lepi_test[i,]
 
- pred_lepi <- ((coefs$Ruggedness[1]/lepi_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - lepi_Ruggedness_mean)) +
-               ((coefs$Elevation/lepi_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - lepi_Elevation_mean)) +
-               ((coefs$CanopyHeight/lepi_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - lepi_CanopyHeight_mean)) +
+ pred_lepi <- ((coefs$Ruggedness[1]/lepi_Ruggedness_sd) * (stacked_habitat[["TRI_lepi"]] - lepi_Ruggedness_mean)) +
+               ((coefs$Elevation/lepi_Elevation_sd) * (stacked_habitat[["DEM_lepi"]]  - lepi_Elevation_mean)) +
+               ((coefs$CanopyHeight/lepi_CanopyHeight_sd) * (stacked_habitat[["FH_lepi"]]  - lepi_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/lepi_FLP_sd) * (stacked_habitat[["FLP_lepi"]] - lepi_FLP_mean))  +
                coefs$Intercept
  
@@ -890,7 +1462,7 @@ lepi_predictions2 <- data.frame(lepi_predictions)
 colnames(lepi_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
 #write.csv(lepi_predictions2 ,"lepi_predictions2.csv")
-lepi_predictions2 <- read.csv("lepi_predictions2.csv")
+#lepi_predictions2 <- read.csv("lepi_predictions2.csv")
 
 ggplot(lepi_predictions2, aes(x=PA2020)) + ggtitle("Lepi")+
   geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=lepi_pointestimates[2] ),
@@ -931,9 +1503,9 @@ avahi_coefficients <- avahi_coefficients[, sort(colnames(avahi_coefficients))]
 
   coefs <-avahi_coefficients
 
- pred_avahi <- ((coefs$Ruggedness[1]/avahi_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - avahi_Ruggedness_mean)) +
-               ((coefs$Elevation/avahi_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - avahi_Elevation_mean)) +
-               ((coefs$CanopyHeight/avahi_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - avahi_CanopyHeight_mean)) +
+ pred_avahi <- ((coefs$Ruggedness[1]/avahi_Ruggedness_sd) * (stacked_habitat[["TRI_avahi"]] - avahi_Ruggedness_mean)) +
+               ((coefs$Elevation/avahi_Elevation_sd) * (stacked_habitat[["DEM_avahi"]]  - avahi_Elevation_mean)) +
+               ((coefs$CanopyHeight/avahi_CanopyHeight_sd) * (stacked_habitat[["FH_avahi"]]  - avahi_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/avahi_FLP_sd) * (stacked_habitat[["FLP_avahi"]] - avahi_FLP_mean))  +
                coefs$`(Intercept)`
  
@@ -987,14 +1559,14 @@ coef_Elev_avahi<-  rnorm(1000, mean=-0.2868  , sd=0.6246 )
 coefs_avahi_test <- data.frame(Intercept=coef_Intercept_avahi,ForestLossProp=coef_FLP_avahi, CanopyHeight=coef_CH_avahi, Ruggedness = coef_Rug_avahi, Elevation=coef_Elev_avahi)
 
 
-avahi_predictions <- matrix(NA, nrow = 1000, ncol = 4)
-for (i in 1:1000) {
+avahi_predictions <- matrix(NA, nrow = 10, ncol = 4)
+for (i in 1:10) {
  
   coefs <-coefs_avahi_test[i,]
 
- pred_avahi <- ((coefs$Ruggedness[1]/avahi_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - avahi_Ruggedness_mean)) +
-               ((coefs$Elevation/avahi_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - avahi_Elevation_mean)) +
-               ((coefs$CanopyHeight/avahi_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - avahi_CanopyHeight_mean)) +
+ pred_avahi <- ((coefs$Ruggedness[1]/avahi_Ruggedness_sd) * (stacked_habitat[["TRI_avahi"]] - avahi_Ruggedness_mean)) +
+               ((coefs$Elevation/avahi_Elevation_sd) * (stacked_habitat[["DEM_avahi"]]  - avahi_Elevation_mean)) +
+               ((coefs$CanopyHeight/avahi_CanopyHeight_sd) * (stacked_habitat[["FH_avahi"]]  - avahi_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/avahi_FLP_sd) * (stacked_habitat[["FLP_avahi"]] - avahi_FLP_mean))  +
                coefs$Intercept
  
@@ -1038,7 +1610,7 @@ avahi_predictions2 <- data.frame(avahi_predictions)
 colnames(avahi_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
 #write.csv(avahi_predictions2 ,"avahi_predictions2.csv")
-avahi_predictions2  <- read.csv("avahi_predictions2.csv")
+#avahi_predictions2  <- read.csv("avahi_predictions2.csv")
 
 ggplot(avahi_predictions2, aes(x=PA2020)) + ggtitle("Avahi")+
   geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=avahi_pointestimates[2] ),
@@ -1079,9 +1651,9 @@ hapa_coefficients <- hapa_coefficients[, sort(colnames(hapa_coefficients))]
 
   coefs <-hapa_coefficients
 
- pred_hapa <- ((coefs$Ruggedness[1]/hapa_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - hapa_Ruggedness_mean)) +
-               ((coefs$Elevation/hapa_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - hapa_Elevation_mean)) +
-               ((coefs$CanopyHeight/hapa_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - hapa_CanopyHeight_mean)) +
+ pred_hapa <- ((coefs$Ruggedness[1]/hapa_Ruggedness_sd) * (stacked_habitat[["TRI_hapa"]] - hapa_Ruggedness_mean)) +
+               ((coefs$Elevation/hapa_Elevation_sd) * (stacked_habitat[["DEM_hapa"]]  - hapa_Elevation_mean)) +
+               ((coefs$CanopyHeight/hapa_CanopyHeight_sd) * (stacked_habitat[["FH_hapa"]]  - hapa_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/hapa_FLP_sd) * (stacked_habitat[["FLP_hapa"]] - hapa_FLP_mean))  +
                coefs$`(Intercept)`
  
@@ -1135,14 +1707,14 @@ coef_Elev_hapa<-  rnorm(1000, mean=0.009724, sd=0.051925)
 coefs_hapa_test <- data.frame(Intercept=coef_Intercept_hapa,ForestLossProp=coef_FLP_hapa, CanopyHeight=coef_CH_hapa, Ruggedness = coef_Rug_hapa, Elevation=coef_Elev_hapa)
 
 
-hapa_predictions <- matrix(NA, nrow = 1000, ncol = 4)
-for (i in 1:1000) {
+hapa_predictions <- matrix(NA, nrow = 10, ncol = 4)
+for (i in 1:10) {
  
   coefs <-coefs_hapa_test[i,]
 
- pred_hapa <- ((coefs$Ruggedness[1]/hapa_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - hapa_Ruggedness_mean)) +
-               ((coefs$Elevation/hapa_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - hapa_Elevation_mean)) +
-               ((coefs$CanopyHeight/hapa_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - hapa_CanopyHeight_mean)) +
+ pred_hapa <- ((coefs$Ruggedness[1]/hapa_Ruggedness_sd) * (stacked_habitat[["TRI_hapa"]] - hapa_Ruggedness_mean)) +
+               ((coefs$Elevation/hapa_Elevation_sd) * (stacked_habitat[["DEM_hapa"]]  - hapa_Elevation_mean)) +
+               ((coefs$CanopyHeight/hapa_CanopyHeight_sd) * (stacked_habitat[["FH_hapa"]]  - hapa_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/hapa_FLP_sd) * (stacked_habitat[["FLP_hapa"]] - hapa_FLP_mean))  +
                coefs$Intercept
  
@@ -1224,9 +1796,9 @@ allo_coefficients <- allo_coefficients[, sort(colnames(allo_coefficients))]
 
   coefs <-allo_coefficients
 
- pred_allo <- ((coefs$Ruggedness[1]/allo_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - allo_Ruggedness_mean)) +
-               ((coefs$Elevation/allo_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - allo_Elevation_mean)) +
-               ((coefs$CanopyHeight/allo_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - allo_CanopyHeight_mean)) +
+ pred_allo <- ((coefs$Ruggedness[1]/allo_Ruggedness_sd) * (stacked_habitat[["TRI_allo"]] - allo_Ruggedness_mean)) +
+               ((coefs$Elevation/allo_Elevation_sd) * (stacked_habitat[["DEM_allo"]]  - allo_Elevation_mean)) +
+               ((coefs$CanopyHeight/allo_CanopyHeight_sd) * (stacked_habitat[["FH_allo"]]  - allo_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/allo_FLP_sd) * (stacked_habitat[["FLP_allo"]] - allo_FLP_mean))  +
                coefs$`(Intercept)`
  
@@ -1280,14 +1852,14 @@ coef_Elev_allo<-  rnorm(1000, mean=-0.2194  , sd=0.4351)
 coefs_allo_test <- data.frame(Intercept=coef_Intercept_allo,ForestLossProp=coef_FLP_allo, CanopyHeight=coef_CH_allo, Ruggedness = coef_Rug_allo, Elevation=coef_Elev_allo)
 
 
-allo_predictions <- matrix(NA, nrow = 1000, ncol = 4)
-for (i in 1:1000) {
+allo_predictions <- matrix(NA, nrow = 10, ncol = 4)
+for (i in 1:10) {
  
   coefs <-coefs_allo_test[i,]
 
- pred_allo <- ((coefs$Ruggedness[1]/allo_Ruggedness_sd) * (stacked_habitat[["Band.1.2"]] - allo_Ruggedness_mean)) +
-               ((coefs$Elevation/allo_Elevation_sd) * (stacked_habitat[["Band.1.1"]]  - allo_Elevation_mean)) +
-               ((coefs$CanopyHeight/allo_CanopyHeight_sd) * (stacked_habitat[["Layer_1"]]  - allo_CanopyHeight_mean)) +
+ pred_allo <- ((coefs$Ruggedness[1]/allo_Ruggedness_sd) * (stacked_habitat[["TRI_allo"]] - allo_Ruggedness_mean)) +
+               ((coefs$Elevation/allo_Elevation_sd) * (stacked_habitat[["DEM_allo"]]  - allo_Elevation_mean)) +
+               ((coefs$CanopyHeight/allo_CanopyHeight_sd) * (stacked_habitat[["FH_allo"]]  - allo_CanopyHeight_mean)) +
                ((coefs$ForestLossProp/allo_FLP_sd) * (stacked_habitat[["FLP_allo"]] - allo_FLP_mean))  +
                coefs$Intercept
  

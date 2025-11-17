@@ -17,7 +17,7 @@ library(terra)
 
 getwd()
 
-F2050 <- raster("~/Downloads/fcc_2050_AFR_aea.tif")
+F2050 <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/fcc_2050_AFR_aea.tif")
 
 extent_wgs84 <- extent(49, 50 ,-15 ,  -14 )
 
@@ -29,15 +29,15 @@ transformed_extent <- extent(extent_polygon_transformed)
 F2050 <- crop(F2050, transformed_extent)
 
 
-DEM <- raster("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/Data/covariate_tif/ASTGTMV003_S15E049_dem.tif")
-FH <- raster("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/Data/covariate_tif/Forest_height_2019_SAFR.tif")
-TRI <- raster("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/Data/covariate_tif/TRI_Nov2023.tif")
-FL <- raster("~/Documents/GitHub/COMATSA_GitHub2/Data/Comatsa_ForestLoss/FARForestLoss20102021.tif")
-FC <- raster("~/Documents/GitHub/COMATSA_GitHub2/Data/Comatsa_ForestLoss/FARForestCover_2010.tif")
+DEM <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/ASTGTMV003_S15E049_dem.tif")
+FH <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/Forest_height_2019_SAFR.tif")
+TRI <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/TRI_Nov2023.tif")
+FL <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/FARForestLoss20102021.tif")
+FC <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/FARForestCover_2010.tif")
 
 
 names(FL) <- "ForestLoss"
-FP <- raster("~/Downloads/forest_2020.tif")
+FP <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/forest_2020.tif")
 extent_polygon <- as(extent_wgs84, "SpatialPolygons")
 proj4string(extent_polygon) <- CRS("+proj=longlat +datum=WGS84")
 extent_polygon_transformed <- spTransform(extent_polygon, crs(FP))
@@ -48,8 +48,8 @@ FP <- crop(FP, transformed_extent)
 FPred <- raster("Data/clipped_deforestation_2050.img")
 #F2020 <- raster("Data/clipped_deforestation_2020.img")
 names(FP) <- "ForestTot"
-bound <- read_sf("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/CroppedRasters/EliseData 2/comatsa_sud_boundary.shp")
-buffer <- read_sf("~/Documents/GitHub/COMATSA_GitHub/COMATSA_GitHub/Data/covariate_tif/comatsa_buffer_sites.shp")
+bound <- read_sf("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/comatsa_sud_boundary.shp")
+buffer <- read_sf("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/comatsa_buffer_sites.shp")
 buffer <- st_transform(buffer, crs = 4326)
 bound <- st_transform(bound ,crs = 4326)
 
@@ -213,11 +213,162 @@ FH <- projectRaster(FH,DEM,method = 'bilinear')
 FP <- projectRaster(FP,DEM,method = "ngb")
 F2050 <- projectRaster(F2050,DEM,  method = "ngb")
 FPred <- projectRaster(FPred,DEM,  method = "ngb")
+```
 
+
+```{r covariate buffer extractions}
+############ prop covariate buffer extractions
+dist_prop <- 364.3
+r_dist <- dist_prop / 111320
+
+w_DEM_prop <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_prop <- w_DEM_prop / sum(w_DEM_prop)
+DEM_prop <- focal(DEM, w = wnorm_DEM_prop, fun = sum, na.rm = TRUE)
+
+w_TRI_prop <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_prop <- w_TRI_prop / sum(w_TRI_prop)
+TRI_prop <- focal(TRI, w = wnorm_TRI_prop, fun = sum, na.rm = TRUE)
+
+w_FH_prop <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_prop <- w_FH_prop / sum(w_FH_prop)
+FH_prop <- focal(FH, w = wnorm_FH_prop, fun = sum, na.rm = TRUE)
+
+############ albi covariate buffer extractions
+dist_albi <- 203.4
+r_dist <- dist_albi / 111320
+
+w_DEM_albi <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_albi <- w_DEM_albi / sum(w_DEM_albi)
+DEM_albi <- focal(DEM, w = wnorm_DEM_albi, fun = sum, na.rm = TRUE)
+
+w_TRI_albi <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_albi <- w_TRI_albi / sum(w_TRI_albi)
+TRI_albi <- focal(TRI, w = wnorm_TRI_albi, fun = sum, na.rm = TRUE)
+
+w_FH_albi <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_albi <- w_FH_albi / sum(w_FH_albi)
+FH_albi <- focal(FH, w = wnorm_FH_albi, fun = sum, na.rm = TRUE)
+
+############ allo covariate buffer extractions
+dist_allo <- 180.2
+r_dist <- dist_allo / 111320
+
+w_DEM_allo <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_allo <- w_DEM_allo / sum(w_DEM_allo)
+DEM_allo <- focal(DEM, w = wnorm_DEM_allo, fun = sum, na.rm = TRUE)
+
+w_TRI_allo <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_allo <- w_TRI_allo / sum(w_TRI_allo)
+TRI_allo <- focal(TRI, w = wnorm_TRI_allo, fun = sum, na.rm = TRUE)
+
+w_FH_allo <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_allo <- w_FH_allo / sum(w_FH_allo)
+FH_allo <- focal(FH, w = wnorm_FH_allo, fun = sum, na.rm = TRUE)
+
+############ cheiro covariate buffer extractions
+dist_cheiro <- 89.2
+r_dist <- dist_cheiro / 111320
+
+w_DEM_cheiro <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_cheiro <- w_DEM_cheiro / sum(w_DEM_cheiro)
+DEM_cheiro <- focal(DEM, w = wnorm_DEM_cheiro, fun = sum, na.rm = TRUE)
+
+w_TRI_cheiro <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_cheiro <- w_TRI_cheiro / sum(w_TRI_cheiro)
+TRI_cheiro <- focal(TRI, w = wnorm_TRI_cheiro, fun = sum, na.rm = TRUE)
+
+w_FH_cheiro <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_cheiro <- w_FH_cheiro / sum(w_FH_cheiro)
+FH_cheiro <- focal(FH, w = wnorm_FH_cheiro, fun = sum, na.rm = TRUE)
+
+############ micro covariate buffer extractions
+dist_micro <- 77.8
+r_dist <- dist_micro / 111320
+
+w_DEM_micro <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_micro <- w_DEM_micro / sum(w_DEM_micro)
+DEM_micro <- focal(DEM, w = wnorm_DEM_micro, fun = sum, na.rm = TRUE)
+
+w_TRI_micro <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_micro <- w_TRI_micro / sum(w_TRI_micro)
+TRI_micro <- focal(TRI, w = wnorm_TRI_micro, fun = sum, na.rm = TRUE)
+
+w_FH_micro <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_micro <- w_FH_micro / sum(w_FH_micro)
+FH_micro <- focal(FH, w = wnorm_FH_micro, fun = sum, na.rm = TRUE)
+
+############ hapa covariate buffer extractions
+dist_hapa <- 116.7
+r_dist <- dist_hapa / 111320
+
+w_DEM_hapa <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_hapa <- w_DEM_hapa / sum(w_DEM_hapa)
+DEM_hapa <- focal(DEM, w = wnorm_DEM_hapa, fun = sum, na.rm = TRUE)
+
+w_TRI_hapa <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_hapa <- w_TRI_hapa / sum(w_TRI_hapa)
+TRI_hapa <- focal(TRI, w = wnorm_TRI_hapa, fun = sum, na.rm = TRUE)
+
+w_FH_hapa <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_hapa <- w_FH_hapa / sum(w_FH_hapa)
+FH_hapa <- focal(FH, w = wnorm_FH_hapa, fun = sum, na.rm = TRUE)
+
+############ lepi covariate buffer extractions
+dist_lepi <- 43.7
+r_dist <- dist_lepi / 111320
+
+w_DEM_lepi <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_lepi <- w_DEM_lepi / sum(w_DEM_lepi)
+DEM_lepi <- focal(DEM, w = wnorm_DEM_lepi, fun = sum, na.rm = TRUE)
+
+w_TRI_lepi <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_lepi <- w_TRI_lepi / sum(w_TRI_lepi)
+TRI_lepi <- focal(TRI, w = wnorm_TRI_lepi, fun = sum, na.rm = TRUE)
+
+w_FH_lepi <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_lepi <- w_FH_lepi / sum(w_FH_lepi)
+FH_lepi <- focal(FH, w = wnorm_FH_lepi, fun = sum, na.rm = TRUE)
+
+############ rubri covariate buffer extractions
+dist_rubri <- 249.1
+r_dist <- dist_rubri / 111320
+
+w_DEM_rubri <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_rubri <- w_DEM_rubri / sum(w_DEM_rubri)
+DEM_rubri <- focal(DEM, w = wnorm_DEM_rubri, fun = sum, na.rm = TRUE)
+
+w_TRI_rubri <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_rubri <- w_TRI_rubri / sum(w_TRI_rubri)
+TRI_rubri <- focal(TRI, w = wnorm_TRI_rubri, fun = sum, na.rm = TRUE)
+
+w_FH_rubri <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_rubri <- w_FH_rubri / sum(w_FH_rubri)
+FH_rubri <- focal(FH, w = wnorm_FH_rubri, fun = sum, na.rm = TRUE)
+
+############ avahi covariate buffer extractions
+dist_avahi <- 56.4
+r_dist <- dist_avahi / 111320
+
+w_DEM_avahi <- focalMat(DEM, d = r_dist, type = "circle")
+wnorm_DEM_avahi <- w_DEM_avahi / sum(w_DEM_avahi)
+DEM_avahi <- focal(DEM, w = wnorm_DEM_avahi, fun = sum, na.rm = TRUE)
+
+w_TRI_avahi <- focalMat(TRI, d = r_dist, type = "circle")
+wnorm_TRI_avahi <- w_TRI_avahi / sum(w_TRI_avahi)
+TRI_avahi <- focal(TRI, w = wnorm_TRI_avahi, fun = sum, na.rm = TRUE)
+
+w_FH_avahi <- focalMat(FH, d = r_dist, type = "circle")
+wnorm_FH_avahi <- w_FH_avahi / sum(w_FH_avahi)
+FH_avahi <- focal(FH, w = wnorm_FH_avahi, fun = sum, na.rm = TRUE)
+
+
+
+```
+
+```{r stacking rasters}
 stacked_habitat <- stack(DEM,TRI,FH, FL, FL_prop, FC_prop, FL_albi, FC_albi, FL_allo, FC_allo,
-                         FL_cheiro, FC_cheiro, FL_micro, FC_micro, FL_hapa, FC_hapa, FL_lepi, FC_lepi,
-                         FL_rubri, FC_rubri, FL_avahi, FC_avahi, FP, F2050)
-names(stacked_habitat) <- c("Band.1.1", "Band.1.2", "Layer_1", "ForestLoss", "Band_1.1", "Band_1.2", "Band_1.3", "Band_1.4", "Band_1.5", "Band_1.6", "Band_1.7", "Band_1.8", "Band_1.9", "Band_1.10", "Band_1.11", "Band_1.12", "Band_1.13", "Band_1.14", "Band_1.15", "Band_1.16", "Band_1.17","Band_1.18", "ForestTot", "fcc_2050_AFR_aea")
+                         FL_cheiro, FC_cheiro, FL_micro, FC_micro, FL_hapa, FC_hapa, FL_lepi, FC_lepi, FL_rubri, FC_rubri, FL_avahi, FC_avahi, FP, F2050,DEM_prop, TRI_prop, FH_prop, DEM_albi, TRI_albi, FH_albi, DEM_allo, TRI_allo, FH_allo, DEM_cheiro, TRI_cheiro, FH_cheiro, DEM_micro, TRI_micro, FH_micro, DEM_hapa, TRI_hapa, FH_hapa, DEM_lepi, TRI_lepi, FH_lepi, DEM_rubri, TRI_rubri, FH_rubri, DEM_avahi, TRI_avahi, FH_avahi )
+names(stacked_habitat) <- c("Band.1.1", "Band.1.2", "Layer_1", "ForestLoss", "Band_1.1", "Band_1.2", "Band_1.3", "Band_1.4", "Band_1.5", "Band_1.6", "Band_1.7", "Band_1.8", "Band_1.9", "Band_1.10", "Band_1.11", "Band_1.12", "Band_1.13", "Band_1.14", "Band_1.15", "Band_1.16", "Band_1.17","Band_1.18", "ForestTot", "fcc_2050_AFR_aea", "DEM_prop", "TRI_prop", "FH_prop", "DEM_albi", "TRI_albi", "FH_albi", "DEM_allo", "TRI_allo", "FH_allo", "DEM_cheiro", "TRI_cheiro", "FH_cheiro", "DEM_micro", "TRI_micro", "FH_micro", "DEM_hapa", "TRI_hapa", "FH_hapa", "DEM_lepi", "TRI_lepi", "FH_lepi", "DEM_rubri", "TRI_rubri", "FH_rubri", "DEM_avahi", "TRI_avahi", "FH_avahi" )
 
 values(stacked_habitat$Band_1.1)[values(stacked_habitat$Band_1.1)<0] <-0
 values(stacked_habitat$Band_1.2)[values(stacked_habitat$Band_1.2)<0] <-0
@@ -263,7 +414,7 @@ values(stacked_habitat$FLP_avahi)[values(stacked_habitat$FLP_avahi)>1] <-1
 stacked_habitat$Layer_1[stacked_habitat$Layer_1<0] <- 0
 
 #Clamping
-habitat2 <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/habitat_covs.csv")
+habitat2 <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/habitat_covs.csv")
 
 values(stacked_habitat$Band.1.1)[values(stacked_habitat$Band.1.1)<min(habitat2$Elevation)]<- min(habitat2$Elevation)
 
@@ -314,8 +465,119 @@ values(stacked_habitat$FLP_rubri)[values(stacked_habitat$FLP_rubri)<min(habitat2
 
 values(stacked_habitat$FLP_rubri)[values(stacked_habitat$FLP_rubri)>max(habitat2$ForestLossProp[habitat2$Species=="Eulemur_rubriventer"])]<- max(habitat2$ForestLossProp[habitat2$Species=="Eulemur_rubriventer"])
 
+####
+values(stacked_habitat$FH_allo)[values(stacked_habitat$FH_allo)<min(habitat2$CanopyHeight[habitat2$Species=="Allocebus_trichotis"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$FH_allo)[values(stacked_habitat$FH_allo)>max(habitat2$CanopyHeight[habitat2$Species=="Allocebus_trichotis"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$FH_albi)[values(stacked_habitat$FH_albi)<min(habitat2$CanopyHeight[habitat2$Species=="Eulemur_albifrons"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$FH_albi)[values(stacked_habitat$FH_albi)>max(habitat2$CanopyHeight[habitat2$Species=="Eulemur_albifrons"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$FH_avahi)[values(stacked_habitat$FH_avahi)<min(habitat2$CanopyHeight[habitat2$Species=="Avahi_laniger"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$FH_avahi)[values(stacked_habitat$FH_avahi)>max(habitat2$CanopyHeight[habitat2$Species=="Avahi_laniger"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$FH_lepi)[values(stacked_habitat$FH_lepi)<min(habitat2$CanopyHeight[habitat2$Species=="Lepilemur_saeli"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$FH_lepi)[values(stacked_habitat$FH_lepi)>max(habitat2$CanopyHeight[habitat2$Species=="Lepilemur_saeli"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$FH_cheiro)[values(stacked_habitat$FH_cheiro)<min(habitat2$CanopyHeight[habitat2$Species=="Cheirogaleus_crossleyi"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$FH_cheiro)[values(stacked_habitat$FH_cheiro)>max(habitat2$CanopyHeight[habitat2$Species=="Cheirogaleus_crossleyi"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$FH_micro)[values(stacked_habitat$FH_micro)<min(habitat2$CanopyHeight[habitat2$Species=="Microcebus_lehilahytsara"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$FH_micro)[values(stacked_habitat$FH_micro)>max(habitat2$CanopyHeight[habitat2$Species=="Microcebus_lehilahytsara"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$FH_hapa)[values(stacked_habitat$FH_hapa)<min(habitat2$CanopyHeight[habitat2$Species=="Hapalemur_occidentalis"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$FH_hapa)[values(stacked_habitat$FH_hapa)>max(habitat2$CanopyHeight[habitat2$Species=="Hapalemur_occidentalis"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$FH_prop)[values(stacked_habitat$FH_prop)<min(habitat2$CanopyHeight[habitat2$Species=="Propithecus_candidus"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$FH_prop)[values(stacked_habitat$FH_prop)>max(habitat2$CanopyHeight[habitat2$Species=="Propithecus_candidus"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$FH_rubri)[values(stacked_habitat$FH_rubri)<min(habitat2$CanopyHeight[habitat2$Species=="Eulemur_rubriventer"])]<- min(habitat2$CanopyHeight[habitat2$Species=="Eulemur_rubriventer"])
+
+values(stacked_habitat$FH_rubri)[values(stacked_habitat$FH_rubri)>max(habitat2$CanopyHeight[habitat2$Species=="Eulemur_rubriventer"])]<- max(habitat2$CanopyHeight[habitat2$Species=="Eulemur_rubriventer"])
+
+####
+values(stacked_habitat$TRI_allo)[values(stacked_habitat$TRI_allo)<min(habitat2$Ruggedness[habitat2$Species=="Allocebus_trichotis"])]<- min(habitat2$Ruggedness[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$TRI_allo)[values(stacked_habitat$TRI_allo)>max(habitat2$Ruggedness[habitat2$Species=="Allocebus_trichotis"])]<- max(habitat2$Ruggedness[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$TRI_albi)[values(stacked_habitat$TRI_albi)<min(habitat2$Ruggedness[habitat2$Species=="Eulemur_albifrons"])]<- min(habitat2$Ruggedness[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$TRI_albi)[values(stacked_habitat$TRI_albi)>max(habitat2$Ruggedness[habitat2$Species=="Eulemur_albifrons"])]<- max(habitat2$Ruggedness[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$TRI_avahi)[values(stacked_habitat$TRI_avahi)<min(habitat2$Ruggedness[habitat2$Species=="Avahi_laniger"])]<- min(habitat2$Ruggedness[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$TRI_avahi)[values(stacked_habitat$TRI_avahi)>max(habitat2$Ruggedness[habitat2$Species=="Avahi_laniger"])]<- max(habitat2$Ruggedness[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$TRI_lepi)[values(stacked_habitat$TRI_lepi)<min(habitat2$Ruggedness[habitat2$Species=="Lepilemur_saeli"])]<- min(habitat2$Ruggedness[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$TRI_lepi)[values(stacked_habitat$TRI_lepi)>max(habitat2$Ruggedness[habitat2$Species=="Lepilemur_saeli"])]<- max(habitat2$Ruggedness[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$TRI_cheiro)[values(stacked_habitat$TRI_cheiro)<min(habitat2$Ruggedness[habitat2$Species=="Cheirogaleus_crossleyi"])]<- min(habitat2$Ruggedness[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$TRI_cheiro)[values(stacked_habitat$TRI_cheiro)>max(habitat2$Ruggedness[habitat2$Species=="Cheirogaleus_crossleyi"])]<- max(habitat2$Ruggedness[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$TRI_micro)[values(stacked_habitat$TRI_micro)<min(habitat2$Ruggedness[habitat2$Species=="Microcebus_lehilahytsara"])]<- min(habitat2$Ruggedness[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$TRI_micro)[values(stacked_habitat$TRI_micro)>max(habitat2$Ruggedness[habitat2$Species=="Microcebus_lehilahytsara"])]<- max(habitat2$Ruggedness[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$TRI_hapa)[values(stacked_habitat$TRI_hapa)<min(habitat2$Ruggedness[habitat2$Species=="Hapalemur_occidentalis"])]<- min(habitat2$Ruggedness[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$TRI_hapa)[values(stacked_habitat$TRI_hapa)>max(habitat2$Ruggedness[habitat2$Species=="Hapalemur_occidentalis"])]<- max(habitat2$Ruggedness[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$TRI_prop)[values(stacked_habitat$TRI_prop)<min(habitat2$Ruggedness[habitat2$Species=="Propithecus_candidus"])]<- min(habitat2$Ruggedness[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$TRI_prop)[values(stacked_habitat$TRI_prop)>max(habitat2$Ruggedness[habitat2$Species=="Propithecus_candidus"])]<- max(habitat2$Ruggedness[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$TRI_rubri)[values(stacked_habitat$TRI_rubri)<min(habitat2$Ruggedness[habitat2$Species=="Eulemur_rubriventer"])]<- min(habitat2$Ruggedness[habitat2$Species=="Eulemur_rubriventer"])
+
+values(stacked_habitat$TRI_rubri)[values(stacked_habitat$TRI_rubri)>max(habitat2$Ruggedness[habitat2$Species=="Eulemur_rubriventer"])]<- max(habitat2$Ruggedness[habitat2$Species=="Eulemur_rubriventer"])
+####
+values(stacked_habitat$DEM_allo)[values(stacked_habitat$DEM_allo)<min(habitat2$Elevation[habitat2$Species=="Allocebus_trichotis"])]<- min(habitat2$Elevation[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$DEM_allo)[values(stacked_habitat$DEM_allo)>max(habitat2$Elevation[habitat2$Species=="Allocebus_trichotis"])]<- max(habitat2$Elevation[habitat2$Species=="Allocebus_trichotis"])
+
+values(stacked_habitat$DEM_albi)[values(stacked_habitat$DEM_albi)<min(habitat2$Elevation[habitat2$Species=="Eulemur_albifrons"])]<- min(habitat2$Elevation[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$DEM_albi)[values(stacked_habitat$DEM_albi)>max(habitat2$Elevation[habitat2$Species=="Eulemur_albifrons"])]<- max(habitat2$Elevation[habitat2$Species=="Eulemur_albifrons"])
+
+values(stacked_habitat$DEM_avahi)[values(stacked_habitat$DEM_avahi)<min(habitat2$Elevation[habitat2$Species=="Avahi_laniger"])]<- min(habitat2$Elevation[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$DEM_avahi)[values(stacked_habitat$DEM_avahi)>max(habitat2$Elevation[habitat2$Species=="Avahi_laniger"])]<- max(habitat2$Elevation[habitat2$Species=="Avahi_laniger"])
+
+values(stacked_habitat$DEM_lepi)[values(stacked_habitat$DEM_lepi)<min(habitat2$Elevation[habitat2$Species=="Lepilemur_saeli"])]<- min(habitat2$Elevation[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$DEM_lepi)[values(stacked_habitat$DEM_lepi)>max(habitat2$Elevation[habitat2$Species=="Lepilemur_saeli"])]<- max(habitat2$Elevation[habitat2$Species=="Lepilemur_saeli"])
+
+values(stacked_habitat$DEM_cheiro)[values(stacked_habitat$DEM_cheiro)<min(habitat2$Elevation[habitat2$Species=="Cheirogaleus_crossleyi"])]<- min(habitat2$Elevation[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$DEM_cheiro)[values(stacked_habitat$DEM_cheiro)>max(habitat2$Elevation[habitat2$Species=="Cheirogaleus_crossleyi"])]<- max(habitat2$Elevation[habitat2$Species=="Cheirogaleus_crossleyi"])
+
+values(stacked_habitat$DEM_micro)[values(stacked_habitat$DEM_micro)<min(habitat2$Elevation[habitat2$Species=="Microcebus_lehilahytsara"])]<- min(habitat2$Elevation[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$DEM_micro)[values(stacked_habitat$DEM_micro)>max(habitat2$Elevation[habitat2$Species=="Microcebus_lehilahytsara"])]<- max(habitat2$Elevation[habitat2$Species=="Microcebus_lehilahytsara"])
+
+values(stacked_habitat$DEM_hapa)[values(stacked_habitat$DEM_hapa)<min(habitat2$Elevation[habitat2$Species=="Hapalemur_occidentalis"])]<- min(habitat2$Elevation[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$DEM_hapa)[values(stacked_habitat$DEM_hapa)>max(habitat2$Elevation[habitat2$Species=="Hapalemur_occidentalis"])]<- max(habitat2$Elevation[habitat2$Species=="Hapalemur_occidentalis"])
+
+values(stacked_habitat$DEM_prop)[values(stacked_habitat$DEM_prop)<min(habitat2$Elevation[habitat2$Species=="Propithecus_candidus"])]<- min(habitat2$Elevation[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$DEM_prop)[values(stacked_habitat$DEM_prop)>max(habitat2$Elevation[habitat2$Species=="Propithecus_candidus"])]<- max(habitat2$Elevation[habitat2$Species=="Propithecus_candidus"])
+
+values(stacked_habitat$DEM_rubri)[values(stacked_habitat$DEM_rubri)<min(habitat2$Elevation[habitat2$Species=="Eulemur_rubriventer"])]<- min(habitat2$Elevation[habitat2$Species=="Eulemur_rubriventer"])
+
+values(stacked_habitat$DEM_rubri)[values(stacked_habitat$DEM_rubri)>max(habitat2$Elevation[habitat2$Species=="Eulemur_rubriventer"])]<- max(habitat2$Elevation[habitat2$Species=="Eulemur_rubriventer"])
 
 ```
+
+
 
 ```{r predictions prop}
 prop_predictions <- matrix(NA, nrow = 100, ncol = 4)

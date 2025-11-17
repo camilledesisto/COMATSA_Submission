@@ -11,15 +11,15 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tidyverse);library(MuMIn);library(rsq);library(lme4);library(lmerTest);library(ggpubr)
 
-albi_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/albi_dat.csv")
-allo_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/allocebus_dat.csv")
-avahi_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/avahi_dat.csv")
-cheiro_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/cheirogaleus_dat.csv")
-lepi_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/lepilemur_dat.csv")
-rubri_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/rubriventer_dat.csv")
-prop_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/prop_dat.csv")
-micro_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/microcebus_dat.csv")
-hapa_density <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/hapa_dat.csv")
+albi_density <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/albi_dat.csv")
+allo_density <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/allocebus_dat.csv")
+avahi_density <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/avahi_dat.csv")
+cheiro_density <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/cheirogaleus_dat.csv")
+lepi_density <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/lepilemur_dat.csv")
+rubri_density <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/rubriventer_dat.csv")
+prop_density <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/prop_dat.csv")
+micro_density <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/microcebus_dat.csv")
+hapa_density <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/hapa_dat.csv")
 
 
 albi_density$Species <- "Eulemur_albifrons"
@@ -35,7 +35,7 @@ hapa_density$Species <- "Hapalemur_occidentalis"
 
 lemur_densities <- rbind(albi_density, allo_density, avahi_density, cheiro_density, lepi_density, rubri_density, prop_density, micro_density, hapa_density) %>% rename(SiteTransect = Site_Transect)
 
-habitat <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/habitat_covs.csv")
+habitat <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/habitat_covs.csv")
 
 densities_habitat <- left_join(lemur_densities, habitat, by=c("SiteTransect", "Species"))
 
