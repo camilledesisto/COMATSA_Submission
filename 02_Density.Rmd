@@ -16,11 +16,11 @@ knitr::opts_chunk$set(echo = TRUE)
 library(Distance); library(tidyverse); library(lme4); library(lmerTest); library(rsq); library(ggplot2);library(REdaS)
 
 #Import relevant data 
-transect_lengths <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/Transect_Length.csv")
+transect_lengths <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/Transect_Length.csv")
 
 transect_lengths$Site_Transect <- paste(transect_lengths$Site,"_",as.numeric(transect_lengths$Transect), sep="")
 
-survey_all <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/lemurs_primary_in_transect_april30.csv")
+survey_all <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/lemurs_primary_in_transect_april30.csv")
 survey_all$Type[survey_all$Type=="diurnal"] <- "Diurnal"
 survey_all$Site_Transect <- paste(survey_all$Site,"_",as.numeric(survey_all$Transect), sep="")
 
@@ -29,6 +29,11 @@ survey_all$distance <- abs((sin(survey_all$Angle))*(survey_all$Dis))
 
 #remove detections not based on sight
 survey_all <- survey_all %>% filter(ObjectID != 1440 & ObjectID != 1418 & ObjectID != 417 & ObjectID != 418 & ObjectID != 96)
+
+#Data Cleaning points where n_ad not entered
+survey_all <- survey_all %>% filter(ObjectID != 425 ) #duplicated entry
+
+survey_all$N_ad[survey_all$ObjectID==480  |survey_all$ObjectID==530  |survey_all$ObjectID==1058 |survey_all$ObjectID==1060  ] <- 1
 
 
 #size as in group size - take the larger value of n_ind or sum of n_juv +n_ad
@@ -42,7 +47,121 @@ survey_all <- survey_all %>% mutate(N_total = ifelse(N_total > N_ind, N_total, N
 survey_all$N_ad <- survey_all$N_total -survey_all$N_juv
 
 #NOBS - calculate before filtering by date
-nobs <- survey_all %>% dplyr::select(Site, Transect, Nom_sientifique, Type)%>%drop_na(Nom_sientifique) %>%group_by(Site, Transect, Nom_sientifique, Type) %>% mutate(NObs =n())%>% distinct()
+nobs <- survey_all %>% dplyr::select(Site, Transect, Nom_sientifique, Type, Repetition)%>%drop_na(Nom_sientifique) %>%group_by(Site, Transect, Nom_sientifique, Type) %>% mutate(NObs =n())%>% distinct()
+```
+
+```{r tristan seasonality tests in progress}
+#nobs_m <- survey_all %>% filter(Nom_sientifique =="Microcebus_lehilahytsara" & Site.x!= "Ambodihasina"& Site.x!= "Androfiabe" ) %>% dplyr::select(Site.x, Transect.x, Type, Repetition, Length) %>%group_by(Site.x, Transect.x, Type, Repetition, Length) %>% summarise(NObs = n())
+survey_all1 <- left_join(survey_all, transect_lengths , by =c("Site_Transect", "Site", "Transect"))
+
+nobs_m <- survey_all1 %>% filter(Nom_sientifique =="Microcebus_lehilahytsara") %>% dplyr::select(Site, Transect, Type, Repetition, Length) %>%group_by(Site, Transect, Type, Repetition, Length) %>% summarise(NObs = n())
+
+
+survey_all1$calendar <- survey_all1$Mois-1 + survey_all1$Jour/30
+survey_all1$calendar[is.na(survey_all1$calendar)]<- 6
+survey_all1$calendar[survey_all1$calendar<3]<- survey_all1$calendar[survey_all1$calendar<3]+12
+
+reps <- survey_all1  %>% dplyr::select(Site, Transect, Type, Repetition, Length, calendar) %>%group_by(Site, Transect, Type, Repetition, Length, calendar) 
+#reps <- reps %>% filter(Site!= "Ambodihasina"& Site!= "Androfiabe")
+
+
+test_micro <- left_join(reps, nobs_m, by = c("Site", "Transect", "Type", "Repetition", "Length"))
+test_micro$NObs[is.na(test_micro$NObs)] <- 0
+test_micro$EncounterRate <- 1000*test_micro$NObs/test_micro$Length
+
+# Plot
+ggplot(test_micro, aes(x = calendar, y = EncounterRate)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "loess", se = FALSE, linewidth = 1.2) +
+  labs(
+    title = "Cheiro Encounter Rate Over Time",
+    x = "Calendar Date",
+    y = "Encounter Rate",
+    color = NULL
+  ) +
+  theme_minimal()
+
+####################
+
+test_micro$calendar_num <- as.numeric(test_micro$calendar)
+
+# Period is 12 → angular frequency:
+omega <- 2 * pi / 12
+
+# Fit sine + cosine model (linear in parameters)
+fit <- lm(EncounterRate ~ sin(omega * calendar_num) + cos(omega * calendar_num),
+          data = test_micro)
+summary(fit)
+# Add fitted values
+test_micro$fit_sine <- predict(fit)
+
+# Plot scatter + sine wave fit
+ggplot(test_micro, aes(x = calendar_num, y = EncounterRate)) +
+  geom_point(alpha = 0.6) +
+  geom_line(aes(y = fit_sine), color = "blue", linewidth = 1.2) +
+  labs(
+    title = "Microcebus Encounter Rate fit Sine wave",
+    x = "Calendar",
+    y = "Encounter Rate"
+  ) +
+  theme_minimal()
+
+
+test_all1o$calendar_num <- as.numeric(test_all1o$calendar)
+
+# Period is 12 → angular frequency:
+omega <- 2 * pi / 12
+
+# Fit sine + cosine model (linear in parameters)
+fit <- lm(EncounterRate ~ sin(omega * calendar_num) + cos(omega * calendar_num),
+          data = test_all1o)
+
+# Add fitted values
+test_all1o$fit_sine <- predict(fit)
+
+# Plot scatter + sine wave fit
+ggplot(test_all1o, aes(x = calendar_num, y = EncounterRate)) +
+  geom_point(alpha = 0.6) +
+  geom_line(aes(y = fit_sine), color = "blue", linewidth = 1.2) +
+  labs(
+    title = "allocebus Encounter Rate fit Sine wave",
+    x = "Calendar",
+    y = "Encounter Rate"
+  ) +
+  theme_minimal()
+
+
+
+
+
+
+
+
+
+
+#Allocebus
+nobs_a <- survey_all1 %>% filter(Nom_sientifique =="Allocebus_trichotis") %>% dplyr::select(Site, Transect, Type, Repetition, Length) %>%group_by(Site, Transect, Type, Repetition, Length) %>% summarise(NObs = n())
+
+test_all1o <- left_join(reps, nobs_a, by = c("Site", "Transect", "Type", "Repetition", "Length"))
+test_all1o$NObs[is.na(test_all1o$NObs)] <- 0
+test_all1o$EncounterRate <- 1000*test_all1o$NObs/test_all1o$Length
+
+# Plot
+ggplot(test_all1o, aes(x = calendar, y = EncounterRate)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "loess", se = FALSE, linewidth = 1.2) +
+  labs(
+    title = "Allocebus Encounter Rate Over Time",
+    x = "Calendar Date",
+    y = "Encounter Rate",
+    color = NULL
+  ) +
+  theme_minimal()
+
+```
+
+```{r }
+
 nobs <- pivot_wider(nobs, names_from = Type, values_from = NObs)
 nobs[is.na(nobs)]<- 0
 nobs$NObs_total <- nobs$Diurnal + nobs$Nocturnal
@@ -200,6 +319,8 @@ model6_allocebus <- ds(allocebus_df3, key="hr", adjustment="herm")
 model7_allocebus <- ds(allocebus_df3, key="unif", adjustment=NULL)
 model8_allocebus <- ds(allocebus_df3, key="unif", adjustment="cos")
 model9_allocebus <- ds(allocebus_df3, key="unif", adjustment="herm")
+model10_allocebus <- ds(allocebus_df3, formula=~size, key="hn")
+model11_allocebus <- ds(allocebus_df3, formula=~size, key="hr")
 
 #Test goodness of fit for detection functions
 gof_ds(model1_allocebus)
@@ -211,9 +332,14 @@ gof_ds(model6_allocebus)
 gof_ds(model7_allocebus)#significant, poor fit
 gof_ds(model8_allocebus)
 gof_ds(model9_allocebus)#significant, poor fit
+gof_ds(model10_allocebus)#marg sig
+gof_ds(model11_allocebus)
 
 #Of the models without poor fit, compare AIC values
-AIC(model1_allocebus,model2_allocebus,model3_allocebus, model4_allocebus,model5_allocebus, model6_allocebus,model8_allocebus)
+aic_table <- AIC(model1_allocebus,model2_allocebus,model3_allocebus, model4_allocebus,model5_allocebus, model6_allocebus,model8_allocebus, model10_allocebus, model11_allocebus)
+
+aic_sorted <- aic_table[order(aic_table$AIC), ]
+aic_sorted
 
 #Plot the best-fitting model 
 plot(model4_allocebus, nc=6)
@@ -247,7 +373,7 @@ allocebus_dat <- left_join(allocebus_dat,transect_lengths, by =c("Site_Transect"
 allocebus_dat$Density <- (allocebus_dat$Nind/allocebus_detection_prob)/(allocebus_truncation_dist*allocebus_dat$Length*allocebus_dat$NRep*2)
 allocebus_dat$Density_km2 <- allocebus_dat$Density*1000000
 
-write.csv(allocebus_dat,"~/Documents/GitHub/COMATSA_GitHub2/Data/allocebus_dat.csv")
+write.csv(allocebus_dat,"~/COMATSA_Submission/Data/allocebus_dat.csv")
 
 ```
 
@@ -275,6 +401,8 @@ model6_microcebus <- ds(microcebus_df3, key="hr", adjustment="herm", truncation 
 model7_microcebus <- ds(microcebus_df3, key="unif", adjustment=NULL, truncation = microcebus_truncation_dist)
 model8_microcebus <- ds(microcebus_df3, key="unif", adjustment="cos", truncation = microcebus_truncation_dist)
 model9_microcebus <- ds(microcebus_df3, key="unif", adjustment="herm", truncation = microcebus_truncation_dist)
+model10_microcebus <- ds(microcebus_df3, formula=~size, key="hn", truncation = microcebus_truncation_dist)
+model11_microcebus <- ds(microcebus_df3, formula=~size, key="hr", truncation = microcebus_truncation_dist)
 
 #Test goodness of fit for detection functions
 gof_ds(model1_microcebus)#significant 
@@ -286,17 +414,17 @@ gof_ds(model6_microcebus)#significant
 gof_ds(model7_microcebus)#significant
 gof_ds(model8_microcebus)#significant
 gof_ds(model9_microcebus)#significant
-
-plot(model6_microcebus)
+gof_ds(model10_microcebus)#significant
+gof_ds(model11_microcebus)#significant
 
 #Compare AIC calues
-AIC(model1_microcebus, model2_microcebus, model3_microcebus, model4_microcebus, model5_microcebus, model6_microcebus, model7_microcebus, model8_microcebus, model9_microcebus)
+AIC(model1_microcebus, model2_microcebus, model3_microcebus, model4_microcebus, model5_microcebus, model6_microcebus, model7_microcebus, model8_microcebus, model9_microcebus, model10_microcebus, model11_microcebus)
 
-#Plot the best-fitting model that also looks the most resasonable 
+#Plot the best-fitting model that also looks the most reasonable 
 plot(model4_microcebus, nc=6)
 
 #Get detection probability
-microcebus_detection_prob <- predict(model6_microcebus)$fitted[[1]]
+microcebus_detection_prob <- predict(model4_microcebus)$fitted[[1]]
 
 #Calculate strp width (2 * maximum distance, of the truncated distance data)
 microcebus_strip_width <- microcebus_truncation_dist
@@ -320,7 +448,7 @@ microcebus_dat <- left_join(microcebus_dat, transect_lengths, by =c("Site_Transe
 microcebus_dat$Density <- (microcebus_dat$Nind/microcebus_detection_prob)/(microcebus_truncation_dist*microcebus_dat$Length*microcebus_dat$NRep*2)
 microcebus_dat$Density_km2 <- microcebus_dat$Density*1000000
 
-write.csv(microcebus_dat,"~/Documents/GitHub/COMATSA_GitHub2/Data/microcebus_dat.csv")
+write.csv(microcebus_dat,"~/COMATSA_Submission/Data/microcebus_dat.csv")
 
 ```
 
@@ -348,6 +476,8 @@ model6_cheirogaleus <- ds(cheirogaleus_df3, key="hr", adjustment="herm", truncat
 model7_cheirogaleus <- ds(cheirogaleus_df3, key="unif", adjustment=NULL, truncation = cheirogaleus_truncation_dist, cutpoints = c(0,5,10,15,20,25))
 model8_cheirogaleus <- ds(cheirogaleus_df3, key="unif", adjustment="cos", truncation = cheirogaleus_truncation_dist, cutpoints = c(0,5,10,15,20,25))
 #model9_cheirogaleus <- ds(cheirogaleus_df3, key="unif", adjustment="herm", truncation = cheirogaleus_truncation_dist, cutpoints = c(0,5,10,15,20,25)) #poor fit
+model10_cheirogaleus <- ds(cheirogaleus_df3, key="hr", formula=~size, truncation = cheirogaleus_truncation_dist, cutpoints = c(0,5,10,15,20,25))
+model11_cheirogaleus <- ds(cheirogaleus_df3, key="hn", formula=~size, truncation = cheirogaleus_truncation_dist, cutpoints = c(0,5,10,15,20,25))
 
 #Test goodness of fit for detection functions
 gof_ds(model1_cheirogaleus)#significant
@@ -359,6 +489,8 @@ gof_ds(model6_cheirogaleus)
 gof_ds(model7_cheirogaleus)#significant
 gof_ds(model8_cheirogaleus)#significant
 #gof_ds(model9_cheirogaleus)#significant
+gof_ds(model10_cheirogaleus)#significant
+gof_ds(model11_cheirogaleus)#significant
 
 #compare AIC calues
 AIC(model2_cheirogaleus, model4_cheirogaleus,model5_cheirogaleus, model6_cheirogaleus)
@@ -391,7 +523,7 @@ cheirogaleus_dat <- left_join(cheirogaleus_dat,transect_lengths, by =c("Site_Tra
 cheirogaleus_dat$Density <- (cheirogaleus_dat$Nind/cheirogaleus_detection_prob)/(cheirogaleus_truncation_dist*cheirogaleus_dat$Length*cheirogaleus_dat$NRep*2)
 cheirogaleus_dat$Density_km2 <- cheirogaleus_dat$Density*1000000
 
-write.csv(cheirogaleus_dat,"~/Documents/GitHub/COMATSA_GitHub2/Data/cheirogaleus_dat.csv")
+write.csv(cheirogaleus_dat,"~/COMATSA_Submission/Data/cheirogaleus_dat.csv")
 
 ```
 
@@ -419,6 +551,8 @@ model6_lepilemur <- ds(lepilemur_df3, key="hr", adjustment="herm", truncation = 
 model7_lepilemur <- ds(lepilemur_df3, key="unif", adjustment=NULL, truncation = lepilemur_truncation_dist)
 model8_lepilemur <- ds(lepilemur_df3, key="unif", adjustment="cos", truncation = lepilemur_truncation_dist)
 model9_lepilemur <- ds(lepilemur_df3, key="unif", adjustment="herm", truncation = lepilemur_truncation_dist)
+model10_lepilemur <- ds(lepilemur_df3, key="hr", formula=~size, truncation = lepilemur_truncation_dist)
+model11_lepilemur <- ds(lepilemur_df3, key="hn", formula=~size, truncation = lepilemur_truncation_dist)
 
 #Test goodness of fit for detection functions
 gof_ds(model1_lepilemur)#significant
@@ -429,7 +563,9 @@ gof_ds(model5_lepilemur)
 gof_ds(model6_lepilemur)
 gof_ds(model7_lepilemur)#significant
 gof_ds(model8_lepilemur)
-gof_ds(model9_lepilemur)#significant,
+gof_ds(model9_lepilemur)#significant
+gof_ds(model10_lepilemur)#significant
+gof_ds(model11_lepilemur)#significant
 
 #Of the models without poor fit, compare AIC calues
 AIC( model2_lepilemur, model4_lepilemur, model5_lepilemur,model6_lepilemur, model8_lepilemur)
@@ -461,7 +597,7 @@ lepilemur_dat <- left_join(lepilemur_dat,transect_lengths, by =c("Site_Transect"
 lepilemur_dat$Density <- (lepilemur_dat$Nind/lepilemur_detection_prob)/(lepilemur_truncation_dist*lepilemur_dat$Length*lepilemur_dat$NRep*2)
 lepilemur_dat$Density_km2 <- lepilemur_dat$Density*1000000
 
-write.csv(lepilemur_dat,"~/Documents/GitHub/COMATSA_GitHub2/Data/lepilemur_dat.csv")
+write.csv(lepilemur_dat,"~/COMATSA_Submission/Data/lepilemur_dat.csv")
 ```
 
 ```{r Avahi density calculations}
@@ -488,7 +624,9 @@ model6_avahi <- ds(avahi_df3, key="hr", adjustment="herm", cutpoints = c(0,5,10,
 model7_avahi <- ds(avahi_df3, key="unif", adjustment=NULL, cutpoints = c(0,5,10,15,20))
 model8_avahi <- ds(avahi_df3, key="unif", adjustment="cos", cutpoints = c(0,5,10,15,20))
 model9_avahi <- ds(avahi_df3, key="unif", adjustment="herm", cutpoints = c(0,5,10,15,20))
-
+model10_avahi <- ds(avahi_df3, key="hn", formula=~size, cutpoints = c(0,5,10,15,20))
+model11_avahi <- ds(avahi_df3, key="hr", formula=~size, cutpoints = c(0,5,10,15,20)
+                   )
 #Test goodness of fit for detection functions
 gof_ds(model1_avahi)#significant
 gof_ds(model2_avahi)#significant
@@ -499,9 +637,11 @@ gof_ds(model6_avahi)
 gof_ds(model7_avahi)#significant
 gof_ds(model8_avahi)
 gof_ds(model9_avahi)#significant
+gof_ds(model10_avahi)#significant
+gof_ds(model11_avahi)
 
 #compare AIC calues
-AIC(model1_avahi,model4_avahi,model5_avahi,model6_avahi,model8_avahi)
+AIC(model1_avahi,model4_avahi,model5_avahi,model6_avahi,model8_avahi,model11_avahi)
 
 plot(model4_avahi, nc=4)
 
@@ -530,7 +670,7 @@ avahi_dat <- left_join(avahi_dat,transect_lengths, by =c("Site_Transect"))
 avahi_dat$Density <- (avahi_dat$Nind/avahi_detection_prob)/(avahi_truncation_dist*avahi_dat$Length*avahi_dat$NRep*2)
 avahi_dat$Density_km2 <- avahi_dat$Density*1000000
 
-write.csv(avahi_dat,"~/Documents/GitHub/COMATSA_GitHub2/Data/avahi_dat.csv")
+write.csv(avahi_dat,"~/COMATSA_Submission/Data/avahi_dat.csv")
 
 ```
 
@@ -558,6 +698,8 @@ model6_rubriventer <- ds(rubriventer_df3, key="hr", adjustment="herm", truncatio
 model7_rubriventer <- ds(rubriventer_df3, key="unif", adjustment=NULL, truncation = rubriventer_truncation_dist)
 model8_rubriventer <- ds(rubriventer_df3, key="unif", adjustment="cos", truncation = rubriventer_truncation_dist)
 model9_rubriventer <- ds(rubriventer_df3, key="unif", adjustment="herm", truncation = rubriventer_truncation_dist)
+model10_rubriventer <- ds(rubriventer_df3, key="hr", formula=~size, truncation = rubriventer_truncation_dist)
+model11_rubriventer <- ds(rubriventer_df3, key="hn", formula=~size, truncation = rubriventer_truncation_dist)
 
 #Test goodness of fit for detection functions
 gof_ds(model1_rubriventer)#significant
@@ -569,9 +711,11 @@ gof_ds(model6_rubriventer)#significant
 gof_ds(model7_rubriventer)#significant
 gof_ds(model8_rubriventer)#significant
 gof_ds(model9_rubriventer)#significant
+gof_ds(model8_rubriventer)#significant
+gof_ds(model9_rubriventer)#significant
 
 # compare AIC values
-AIC(model1_rubriventer, model2_rubriventer, model3_rubriventer,model4_rubriventer, model5_rubriventer, model6_rubriventer, model7_rubriventer,  model8_rubriventer ,model9_rubriventer)
+AIC(model1_rubriventer, model2_rubriventer, model3_rubriventer,model4_rubriventer, model5_rubriventer, model6_rubriventer, model7_rubriventer,  model8_rubriventer ,model9_rubriventer, model10_rubriventer ,model11_rubriventer)
 
 #Plot the best model
 plot(model2_rubriventer)
@@ -601,7 +745,7 @@ rubriventer_dat <- left_join(rubriventer_dat,transect_lengths, by =c("Site_Trans
 rubriventer_dat$Density <- (rubriventer_dat$Nind/rubriventer_detection_prob)/(rubriventer_truncation_dist*rubriventer_dat$Length*rubriventer_dat$NRep*2)
 rubriventer_dat$Density_km2 <- rubriventer_dat$Density*1000000
 
-write.csv(rubriventer_dat,"~/Documents/GitHub/COMATSA_GitHub2/Data/rubriventer_dat.csv")
+write.csv(rubriventer_dat,"~/COMATSA_Submission/Data/rubriventer_dat.csv")
 ```
 
 ```{r Albifrons density calculations}
@@ -627,6 +771,8 @@ model6_albifrons <- ds(albifrons_df3, key="hr", adjustment="herm")
 model7_albifrons <- ds(albifrons_df3, key="unif", adjustment=NULL)
 model8_albifrons <- ds(albifrons_df3, key="unif", adjustment="cos")
 model9_albifrons <- ds(albifrons_df3, key="unif", adjustment="herm")
+model10_albifrons <- ds(albifrons_df3, key="hr", formula=~size)
+model11_albifrons <- ds(albifrons_df3, key="hn", formula=~size)#no models coul dbe fit
 
 #Test goodness of fit for detection functions
 gof_ds(model1_albifrons)
@@ -638,9 +784,11 @@ gof_ds(model6_albifrons)
 gof_ds(model7_albifrons)#significant
 gof_ds(model8_albifrons)
 gof_ds(model9_albifrons)
+gof_ds(model10_albifrons)
+
 
 #Of the models without poor fit, compare AIC calues
-AIC(model1_albifrons, model2_albifrons, model3_albifrons,model4_albifrons,model5_albifrons,model6_albifrons, model8_albifrons, model9_albifrons)
+AIC(model1_albifrons, model2_albifrons, model3_albifrons,model4_albifrons,model5_albifrons,model6_albifrons, model8_albifrons, model9_albifrons, model10_albifrons)
 
 #Plot the best-fitting model 
 plot(model8_albifrons)
@@ -670,7 +818,7 @@ albi_dat <- left_join(albi_dat,transect_lengths, by =c("Site_Transect"))
 albi_dat$Density <- (albi_dat$Nind/albifrons_detection_prob)/(albifrons_truncation_dist*albi_dat$Length*albi_dat$NRep*2)
 albi_dat$Density_km2 <- albi_dat$Density*1000000
 
-write.csv(albi_dat,"~/Documents/GitHub/COMATSA_GitHub2/Data/albi_dat.csv")
+write.csv(albi_dat,"~/COMATSA_Submission/Data/albi_dat.csv")
 ```
 
 ```{r Propithecus density calculations}
@@ -697,6 +845,8 @@ model6_propithecus <- ds(propithecus_df3, key="hr", adjustment="herm")
 model7_propithecus <- ds(propithecus_df3, key="unif", adjustment=NULL)
 model8_propithecus <- ds(propithecus_df3, key="unif", adjustment="cos")
 model9_propithecus <- ds(propithecus_df3, key="unif", adjustment="herm")
+model10_propithecus <- ds(propithecus_df3, key="hr", formula=~size)
+model11_propithecus <- ds(propithecus_df3, key="hn", formula=~size)
 
 #Test goodness of fit for detection functions
 gof_ds(model1_propithecus)#significant
@@ -708,9 +858,11 @@ gof_ds(model6_propithecus)
 gof_ds(model7_propithecus)#significant
 gof_ds(model8_propithecus)
 gof_ds(model9_propithecus)#significant
+gof_ds(model10_propithecus)
+gof_ds(model11_propithecus)
 
 #Of the models without poor fit, compare AIC calues
-AIC(model2_propithecus,model4_propithecus,model5_propithecus, model6_propithecus, model8_propithecus)
+AIC(model2_propithecus,model4_propithecus,model5_propithecus, model6_propithecus, model8_propithecus, model10_propithecus, model11_propithecus)
 
 #Plot the best-fitting model 
 plot(model8_propithecus)
@@ -742,23 +894,7 @@ prop_dat$Density <- (prop_dat$Nind/propithecus_detection_prob)/(propithecus_trun
 
 prop_dat$Density_km2 <- prop_dat$Density*1000000
 
-density_data <- prop_dat$Density_km2
-
-# Mean and standard error of the data
-mean_density <- mean(density_data, na.rm = TRUE)
-se_density <- sd(density_data, na.rm = TRUE) / sqrt(length(density_data[!is.na(density_data)]))
-
-# Calculate the 95% CI
-alpha <- 0.05
-z <- qnorm(1 - alpha / 2)  # Z-value for 95% CI
-ci_lower <- mean_density - z * se_density
-ci_upper <- mean_density + z * se_density
-
-# Display the CI
-cat("95% Confidence Interval: [", ci_lower, ", ", ci_upper, "]\n")
-
-write.csv(prop_dat,"~/Documents/GitHub/COMATSA_GitHub2/Data/prop_dat.csv")
-
+write.csv(prop_dat,"~/COMATSA_Submission/Data/prop_dat.csv")
 ```
 
 ```{r Hapalemur density calculations}
@@ -785,6 +921,8 @@ model6_hapalemur <- ds(hapalemur_df3, key="hr", adjustment="herm")
 model7_hapalemur <- ds(hapalemur_df3, key="unif", adjustment=NULL)
 model8_hapalemur <- ds(hapalemur_df3, key="unif", adjustment="cos")
 model9_hapalemur <- ds(hapalemur_df3, key="unif", adjustment="herm")
+model10_hapalemur <- ds(hapalemur_df3, key="hr", formula=~size)
+model11_hapalemur <- ds(hapalemur_df3, key="hn", formula=~size)
 
 #Test goodness of fit for detection functions
 gof_ds(model1_hapalemur)
@@ -796,9 +934,11 @@ gof_ds(model6_hapalemur)
 gof_ds(model7_hapalemur)
 gof_ds(model8_hapalemur)
 gof_ds(model9_hapalemur)
+gof_ds(model10_hapalemur)
+gof_ds(model11_hapalemur)
 
 #Of the models without poor fit, compare AIC calues
-AIC(model1_hapalemur, model2_hapalemur, model3_hapalemur, model4_hapalemur,model5_hapalemur,model6_hapalemur,model7_hapalemur,model8_hapalemur, model9_hapalemur)
+AIC(model1_hapalemur, model2_hapalemur, model3_hapalemur, model4_hapalemur,model5_hapalemur,model6_hapalemur,model7_hapalemur,model8_hapalemur, model9_hapalemur,model10_hapalemur, model11_hapalemur)
 
 #Plot the best-fitting model 
 plot(model8_hapalemur)
@@ -828,7 +968,7 @@ hapa_dat <- left_join(hapa_dat,transect_lengths, by =c("Site_Transect"))
 hapa_dat$Density <- (hapa_dat$Nind/hapalemur_detection_prob)/(hapalemur_truncation_dist*hapa_dat$Length*hapa_dat$NRep*2)
 hapa_dat$Density_km2 <- hapa_dat$Density*1000000
 
-write.csv(hapa_dat,"~/Documents/GitHub/COMATSA_GitHub2/Data/hapa_dat.csv")
+write.csv(hapa_dat,"~/COMATSA_Submission/Data/hapa_dat.csv")
 
 ```
 

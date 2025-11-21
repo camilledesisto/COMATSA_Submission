@@ -672,8 +672,8 @@ coef_Elev_prop<-  rnorm(1000, mean=-0.18010  , sd=0.23312)
 coefs_prop_test <- data.frame(Intercept=coef_Intercept_prop,ForestLossProp=coef_FLP_prop, CanopyHeight=coef_CH_prop, Ruggedness = coef_Rug_prop, Elevation=coef_Elev_prop)
 
 #Loop Time!
-prop_predictions <- matrix(NA, nrow = 150, ncol = 4)
-for (i in 1:150) {
+prop_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
  
   coefs <-coefs_prop_test[i,]
 
@@ -719,7 +719,7 @@ prop_predictions
 prop_predictions2 <- data.frame(prop_predictions)
 colnames(prop_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
-#write.csv(prop_predictions2 ,"prop_predictions2.csv")
+write.csv(prop_predictions2 ,"~COMATSA_Submission/prop_predictions2.csv")
 #prop_predictions2 <- read.csv("prop_predictions2.csv")
 
 ggplot(prop_predictions2, aes(x=PA2020)) + ggtitle("Prop")+ 
