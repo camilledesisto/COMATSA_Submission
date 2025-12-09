@@ -16,11 +16,11 @@ knitr::opts_chunk$set(echo = TRUE)
 library(Distance); library(tidyverse); library(lme4); library(lmerTest); library(rsq); library(ggplot2);library(REdaS)
 
 #Import relevant data 
-transect_lengths <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/Transect_Length.csv")
+transect_lengths <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/Transect_Length.csv")
 
 transect_lengths$Site_Transect <- paste(transect_lengths$Site,"_",as.numeric(transect_lengths$Transect), sep="")
 
-survey_all <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/lemurs_primary_in_transect_april30.csv")
+survey_all <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/lemurs_primary_in_transect_april30.csv")
 survey_all$Type[survey_all$Type=="diurnal"] <- "Diurnal"
 survey_all$Site_Transect <- paste(survey_all$Site,"_",as.numeric(survey_all$Transect), sep="")
 
@@ -64,6 +64,12 @@ nobs_cheiro$Transect2 <- nobs_cheiro$Transect
 nobs_cheiro$Site2 <- nobs_cheiro$Site
 nobs_cheiro <-nobs_cheiro %>% unite("Site_Transect", Site2:Transect2, sep="_")
 
+nobs_micro <- survey_all%>%filter(Mois==1|Mois==2|Mois==3|Mois==11|Mois==12)%>% filter(Nom_sientifique=="Microcebus_lehilahytsara") %>% dplyr::select(Site, Transect, Nom_sientifique) %>%group_by(Site, Transect) %>% mutate(NObs =n())%>% distinct()
+nobs_micro$Transect2 <- nobs_micro$Transect
+nobs_micro$Site2 <- nobs_micro$Site
+nobs_micro <-nobs_micro %>% unite("Site_Transect", Site2:Transect2, sep="_")
+
+sum(nobs_micro$NObs)
 
 ```
 
@@ -86,13 +92,19 @@ nrep_cheiro$Site2 <- nrep_cheiro$Site
 nrep_cheiro$Transect2 <- nrep_cheiro$Transect
 nrep_cheiro <-nrep_cheiro %>% unite("Site_Transect", Site2:Transect2, sep="_")
 
+#micro- Counts ALL REPS
+nrep_micro <- survey_all %>%filter(Mois==1|Mois==2|Mois==3|Mois==11|Mois==12) %>%filter(Type=="Nocturnal") %>%dplyr::select(Site, Transect, Repetition)%>%drop_na(Transect) %>% group_by(Site, Transect) %>% mutate(NRep = length(unique(Repetition))) %>% dplyr::select(-Repetition)%>% distinct()
+nrep_micro$Site2 <- nrep_micro$Site
+nrep_micro$Transect2 <- nrep_micro$Transect
+nrep_micro <-nrep_micro %>% unite("Site_Transect", Site2:Transect2, sep="_")
+
 
 
 #FILTER DATA FOR DISTANCE SAMPLING
 survey_all$Date <- mdy(survey_all$Date)
 survey_all_dist <- survey_all[survey_all$Date >= ymd("20220601"),]
 
-#Make separate data frames for dirunal and nocturnal lemurs
+#Make separate data frames for diurnal and nocturnal lemurs
 survey_diurnal <- survey_all_dist %>% filter(Type=="Diurnal")
 survey_nocturnal <- survey_all_dist %>% filter(Type=="Nocturnal")
 
@@ -115,6 +127,12 @@ nrep_cheiro_distance <- survey_all_dist %>%filter(Mois==1|Mois==2|Mois==3|Mois==
 nrep_cheiro_distance$Site2 <- nrep_cheiro_distance$Site
 nrep_cheiro_distance$Transect2 <- nrep_cheiro_distance$Transect
 nrep_cheiro_distance <-nrep_cheiro_distance %>% unite("Site_Transect", Site2:Transect2, sep="_")
+
+#micro- Only Reps with distance data
+nrep_micro_distance <- survey_all_dist %>%filter(Mois==1|Mois==2|Mois==3|Mois==11|Mois==12) %>%filter(Type=="Nocturnal" ) %>%dplyr::select(Site, Transect, Repetition)%>%drop_na(Transect) %>% group_by(Site, Transect) %>% mutate(NRep = length(unique(Repetition))) %>% dplyr::select(-Repetition)%>% distinct()
+nrep_micro_distance$Site2 <- nrep_micro_distance$Site
+nrep_micro_distance$Transect2 <- nrep_micro_distance$Transect
+nrep_micro_distance <-nrep_micro_distance %>% unite("Site_Transect", Site2:Transect2, sep="_")
 
 
 #EFFORT - only adding effort relevant to distance to the files, can calculate total with full version at end
@@ -142,8 +160,13 @@ survey_cheiro$Effort.total <- survey_cheiro$Length* survey_cheiro$NRep.y
 survey_cheiro <- survey_cheiro %>% dplyr::select( -Site.y.y, -Transect.x.x, -Site.x.x, -Site.y, -Transect.y.y, -Transect.y)
 survey_cheiro <- survey_cheiro %>% rename( Site = Site.x, Transect = Transect.x)
 
-
-
+survey_micro <- left_join((survey_all_dist %>% filter(Nom_sientifique=="Microcebus_lehilahytsara" & (Mois >= 11 | Mois <=3 ))), transect_lengths , by ="Site_Transect")
+survey_micro <- left_join(survey_micro, nrep_micro_distance, by ="Site_Transect")
+survey_micro$Effort.distance <- survey_micro$Length* survey_micro$NRep
+survey_micro <- left_join(survey_micro, nrep_micro, by ="Site_Transect")
+survey_micro$Effort.total <- survey_micro$Length* survey_micro$NRep.y
+survey_micro <- survey_micro %>% dplyr::select( -Site.y.y, -Transect.x.x, -Site.x.x, -Site.y, -Transect.y.y, -Transect.y)
+survey_micro <- survey_micro %>% rename( Site = Site.x, Transect = Transect.x)
 
 nrep_nocturnal2 <- nrep_nocturnal
 nrep_nocturnal2$Type <- "Nocturnal"
@@ -263,82 +286,7 @@ allocebus_dat <- left_join(allocebus_dat,transect_lengths, by =c("Site_Transect"
 allocebus_dat$Density <- (allocebus_dat$Nind/allocebus_detection_prob)/(allocebus_truncation_dist*allocebus_dat$Length*allocebus_dat$NRep*2)
 allocebus_dat$Density_km2 <- allocebus_dat$Density*1000000
 
-write.csv(allocebus_dat,"~/COMATSA_Submission/Data/allocebus_dat.csv")
-
-```
-
-```{r Microcebus density calculations}
-#Get data frame for just microcebus
-microcebus_df <- survey_nocturnal  %>% filter(Nom_sientifique=="Microcebus_lehilahytsara")
-
-#Clean data frame
-microcebus_df3 <- microcebus_df
-microcebus_df3$Area <- 1000000 
-microcebus_df3$Sample.Label <- 1
-microcebus_df3$Region.Label <- microcebus_df3$Site_Transect
-microcebus_df3$size <- as.numeric(microcebus_df3$N_total)
-microcebus_df3$Effort <- microcebus_df3$Effort.distance
-
-#Detection function models
-microcebus_truncation_dist <- 22
-
-model1_microcebus <- ds(microcebus_df3, key="hn", adjustment=NULL, truncation = microcebus_truncation_dist)
-model2_microcebus <- ds(microcebus_df3, key="hn", adjustment="cos", truncation = microcebus_truncation_dist)
-model3_microcebus <- ds(microcebus_df3, key="hn", adjustment="herm", truncation = microcebus_truncation_dist)
-model4_microcebus <- ds(microcebus_df3, key="hr", adjustment=NULL, truncation = microcebus_truncation_dist)
-model5_microcebus <- ds(microcebus_df3, key="hr", adjustment="cos", truncation = microcebus_truncation_dist)
-model6_microcebus <- ds(microcebus_df3, key="hr", adjustment="herm", truncation = microcebus_truncation_dist)
-model7_microcebus <- ds(microcebus_df3, key="unif", adjustment=NULL, truncation = microcebus_truncation_dist)
-model8_microcebus <- ds(microcebus_df3, key="unif", adjustment="cos", truncation = microcebus_truncation_dist)
-model9_microcebus <- ds(microcebus_df3, key="unif", adjustment="herm", truncation = microcebus_truncation_dist)
-model10_microcebus <- ds(microcebus_df3, formula=~size, key="hn", truncation = microcebus_truncation_dist)
-model11_microcebus <- ds(microcebus_df3, formula=~size, key="hr", truncation = microcebus_truncation_dist)
-
-#Test goodness of fit for detection functions
-gof_ds(model1_microcebus)#significant 
-gof_ds(model2_microcebus)#significant 
-gof_ds(model3_microcebus)#significant 
-gof_ds(model4_microcebus)#significant 
-gof_ds(model5_microcebus)#significant 
-gof_ds(model6_microcebus)#significant
-gof_ds(model7_microcebus)#significant
-gof_ds(model8_microcebus)#significant
-gof_ds(model9_microcebus)#significant
-gof_ds(model10_microcebus)#significant
-gof_ds(model11_microcebus)#significant
-
-#Compare AIC calues
-AIC(model1_microcebus, model2_microcebus, model3_microcebus, model4_microcebus, model5_microcebus, model6_microcebus, model7_microcebus, model8_microcebus, model9_microcebus, model10_microcebus, model11_microcebus)
-
-#Plot the best-fitting model that also looks the most reasonable 
-plot(model4_microcebus, nc=6)
-
-#Get detection probability
-microcebus_detection_prob <- predict(model4_microcebus)$fitted[[1]]
-
-#Calculate strp width (2 * maximum distance, of the truncated distance data)
-microcebus_strip_width <- microcebus_truncation_dist
-
-#Upload covariate data 
-microcebus_df_old <- survey_all %>% filter(Nom_sientifique=="Microcebus_lehilahytsara" & Type=="Nocturnal" & Date < ymd("20220601") & (Dis <1.56*microcebus_truncation_dist | is.na(Dis)))
-microcebus_df_new <- survey_all %>% filter(Nom_sientifique=="Microcebus_lehilahytsara" & Type=="Nocturnal"  & Date >= ymd("20220601") & (distance <= microcebus_truncation_dist  | is.na(distance)) )
-microcebus_dat1 <- rbind(microcebus_df_new, microcebus_df_old)
-
-microcebus_dat <- microcebus_dat1  %>% group_by(Site_Transect)%>% summarise(Nind = sum(as.numeric(N_ad)))
-microcebus_dat <- left_join(site_transects, microcebus_dat, by =c("Site_Transect"))
-
-nobs_microcebus <- microcebus_dat1  %>% dplyr::select(Site_Transect) %>%group_by(Site_Transect) %>% mutate(NObs =n())%>% distinct()
-microcebus_dat <- left_join(microcebus_dat, nobs_microcebus, by =c("Site_Transect"))
-microcebus_dat[is.na(microcebus_dat)] <- 0
-
-microcebus_dat <- left_join(microcebus_dat,nrep_nocturnal, by =c("Site_Transect"))
-microcebus_dat <- microcebus_dat %>% dplyr::select(-Site, -Transect, -Type)
-
-microcebus_dat <- left_join(microcebus_dat, transect_lengths, by =c("Site_Transect"))
-microcebus_dat$Density <- (microcebus_dat$Nind/microcebus_detection_prob)/(microcebus_truncation_dist*microcebus_dat$Length*microcebus_dat$NRep*2)
-microcebus_dat$Density_km2 <- microcebus_dat$Density*1000000
-
-write.csv(microcebus_dat,"~/COMATSA_Submission/Data/microcebus_dat.csv")
+write.csv(allocebus_dat,"~/Documents/GitHub/COMATSA_Submission/Data/allocebus_dat.csv")
 
 ```
 
@@ -395,9 +343,11 @@ cheirogaleus_detection_prob <- predict(model2_cheirogaleus)$fitted[[1]]
 cheirogaleus_strip_width <- cheirogaleus_truncation_dist
 
 #Upload covariate data 
-cheirogaleus_df_old <- survey_all %>% filter(Nom_sientifique=="Cheirogaleus_crossleyi" & Type=="Nocturnal" & Date < ymd("20220601") & (Mois >= 11 | Mois <=3 ) & (Dis <1.56*cheirogaleus_truncation_dist | is.na(Dis)))
-cheirogaleus_df_new <- survey_all %>% filter(Nom_sientifique=="Cheirogaleus_crossleyi" & Type=="Nocturnal"  & Date >= ymd("20220601" )& (Mois >= 11 | Mois <=3 ) & (distance <= cheirogaleus_truncation_dist  | is.na(distance)) )
-cheirogaleus_dat1 <- rbind(cheirogaleus_df_new, cheirogaleus_df_old)
+cheirogaleus_df_old <- survey_all %>% filter(Nom_sientifique=="Cheirogaleus_crossleyi" & Type=="Nocturnal" & Date < ymd("20220601") & (Mois >= 11 | Mois <=3 ) & (Dis <1.56*cheirogaleus_truncation_dist | is.na(Dis)))%>%filter(Mois==1|Mois==2|Mois==3|Mois==11|Mois==12) 
+
+cheirogaleus_df_new <- survey_all %>% filter(Nom_sientifique=="Cheirogaleus_crossleyi" & Type=="Nocturnal"  & Date >= ymd("20220601" )& (Mois >= 11 | Mois <=3 ) & (distance <= cheirogaleus_truncation_dist  | is.na(distance)) )%>%filter(Mois==1|Mois==2|Mois==3|Mois==11|Mois==12) 
+
+cheirogaleus_dat1 <- rbind(cheirogaleus_df_new, cheirogaleus_df_old) %>%distinct()
 
 cheirogaleus_dat <- cheirogaleus_dat1  %>% group_by(Site_Transect)%>% summarise(Nind = sum(as.numeric(N_ad)))
 cheirogaleus_dat <- left_join(site_transects, cheirogaleus_dat, by =c("Site_Transect"))
@@ -413,7 +363,85 @@ cheirogaleus_dat <- left_join(cheirogaleus_dat,transect_lengths, by =c("Site_Tra
 cheirogaleus_dat$Density <- (cheirogaleus_dat$Nind/cheirogaleus_detection_prob)/(cheirogaleus_truncation_dist*cheirogaleus_dat$Length*cheirogaleus_dat$NRep*2)
 cheirogaleus_dat$Density_km2 <- cheirogaleus_dat$Density*1000000
 
-write.csv(cheirogaleus_dat,"~/COMATSA_Submission/Data/cheirogaleus_dat.csv")
+write.csv(cheirogaleus_dat,"~/Documents/GitHub/COMATSA_Submission/Data/cheirogaleus_dat.csv")
+
+```
+
+```{r Microcebus density calculations}
+#Get data frame for just microcebus
+microcebus_df <- survey_micro
+
+#Clean data frame
+microcebus_df3 <- microcebus_df
+microcebus_df3$Area <- 1000000 
+microcebus_df3$Sample.Label <- 1
+microcebus_df3$Region.Label <- microcebus_df3$Site_Transect
+microcebus_df3$size <- as.numeric(microcebus_df3$N_total)
+microcebus_df3$Effort <- microcebus_df3$Effort.distance
+
+#Detection function models
+microcebus_truncation_dist <- 22
+
+model1_microcebus <- ds(microcebus_df3, key="hn", adjustment=NULL, truncation = microcebus_truncation_dist)
+model2_microcebus <- ds(microcebus_df3, key="hn", adjustment="cos", truncation = microcebus_truncation_dist)
+model3_microcebus <- ds(microcebus_df3, key="hn", adjustment="herm", truncation = microcebus_truncation_dist)
+model4_microcebus <- ds(microcebus_df3, key="hr", adjustment=NULL, truncation = microcebus_truncation_dist)
+model5_microcebus <- ds(microcebus_df3, key="hr", adjustment="cos", truncation = microcebus_truncation_dist)
+model6_microcebus <- ds(microcebus_df3, key="hr", adjustment="herm", truncation = microcebus_truncation_dist)
+model7_microcebus <- ds(microcebus_df3, key="unif", adjustment=NULL, truncation = microcebus_truncation_dist)
+model8_microcebus <- ds(microcebus_df3, key="unif", adjustment="cos", truncation = microcebus_truncation_dist)
+model9_microcebus <- ds(microcebus_df3, key="unif", adjustment="herm", truncation = microcebus_truncation_dist)
+model10_microcebus <- ds(microcebus_df3, formula=~size, key="hn", truncation = microcebus_truncation_dist)
+model11_microcebus <- ds(microcebus_df3, formula=~size, key="hr", truncation = microcebus_truncation_dist)
+
+#Test goodness of fit for detection functions
+gof_ds(model1_microcebus)
+gof_ds(model2_microcebus)
+gof_ds(model3_microcebus)
+gof_ds(model4_microcebus)
+gof_ds(model5_microcebus)
+gof_ds(model6_microcebus)
+gof_ds(model7_microcebus)#significant
+gof_ds(model8_microcebus)
+gof_ds(model9_microcebus)#significant
+gof_ds(model10_microcebus)
+gof_ds(model11_microcebus)#significant
+
+#Compare AIC calues
+AIC(model1_microcebus, model2_microcebus, model3_microcebus, model4_microcebus, model5_microcebus, model6_microcebus, model8_microcebus, model10_microcebus)
+
+#Plot the best-fitting model that also looks the most reasonable 
+plot(model4_microcebus, nc=6)
+
+#Get detection probability
+microcebus_detection_prob <- predict(model4_microcebus)$fitted[[1]]
+
+#Calculate strp width (2 * maximum distance, of the truncated distance data)
+microcebus_strip_width <- microcebus_truncation_dist
+
+#Upload covariate data 
+microcebus_df_old <- survey_all %>% filter(Nom_sientifique=="Microcebus_lehilahytsara" & Type=="Nocturnal" & Date < ymd("20220601") & (Dis <1.56*microcebus_truncation_dist | is.na(Dis)))%>%filter(Mois==1|Mois==2|Mois==3|Mois==11|Mois==12) 
+
+microcebus_df_new <- survey_all %>% filter(Nom_sientifique=="Microcebus_lehilahytsara" & Type=="Nocturnal"  & Date >= ymd("20220601") & (distance <= microcebus_truncation_dist  | is.na(distance)) )%>%filter(Mois==1|Mois==2|Mois==3|Mois==11|Mois==12) 
+
+microcebus_dat1 <- rbind(microcebus_df_new, microcebus_df_old)
+
+microcebus_dat <- microcebus_dat1  %>% group_by(Site_Transect)%>% summarise(Nind = sum(as.numeric(N_ad)))
+microcebus_dat <- left_join(site_transects, microcebus_dat, by =c("Site_Transect"))
+
+nobs_microcebus <- microcebus_dat1  %>% dplyr::select(Site_Transect) %>%group_by(Site_Transect) %>% mutate(NObs =n())%>% distinct()
+microcebus_dat <- left_join(microcebus_dat, nobs_microcebus, by =c("Site_Transect"))
+microcebus_dat[is.na(microcebus_dat)] <- 0
+
+microcebus_dat <- left_join(microcebus_dat,nrep_micro, by =c("Site_Transect"))
+microcebus_dat <- microcebus_dat %>% dplyr::select(-Site, -Transect)
+
+microcebus_dat <- left_join(microcebus_dat, transect_lengths, by =c("Site_Transect"))
+microcebus_dat$Density <- (microcebus_dat$Nind/microcebus_detection_prob)/(microcebus_truncation_dist*microcebus_dat$Length*microcebus_dat$NRep*2)
+microcebus_dat$Density_km2 <- microcebus_dat$Density*1000000
+
+
+write.csv(microcebus_dat,"~/Documents/GitHub/COMATSA_Submission/Data/microcebus_dat.csv")
 
 ```
 

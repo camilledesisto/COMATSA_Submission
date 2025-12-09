@@ -6,6 +6,7 @@ output: html_document
 ---
 
 
+
 ```{r}
 library(tidyverse);library(MuMIn);library(rsq);library(lme4);library(lmerTest);library(ggpubr)
 
@@ -150,7 +151,7 @@ library(terra)
 
 getwd()
 
-F2050 <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/fcc_2050_AFR_aea.tif")
+F2050 <- raster("~/Downloads/fcc_2050_AFR_aea.tif")
 
 extent_wgs84 <- extent(49, 50 ,-15 ,  -14 )
 
@@ -162,15 +163,15 @@ transformed_extent <- extent(extent_polygon_transformed)
 F2050 <- crop(F2050, transformed_extent)
 
 
-DEM <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/ASTGTMV003_S15E049_dem.tif")
-FH <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/Forest_height_2019_SAFR.tif")
-TRI <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/TRI_Nov2023.tif")
-FL <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/FARForestLoss20102021.tif")
-FC <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/FARForestCover_2010.tif")
+DEM <- raster("~/Downloads/SpatialFiles/ASTGTMV003_S15E049_dem.tif")
+FH <- raster("~/Documents/GitHub/COMATSA_GitHub2/Data/covariate_tif/Forest_height_2019_SAFR.tif")
+TRI <- raster("~/Documents/GitHub/COMATSA_GitHub2/Data/covariate_tif/TRI_Nov2023.tif")
+FL <- raster("~/Downloads/Comatsa_ForestLoss/FARForestLoss20102021.tif")
+FC <- raster("~/Documents/GitHub/COMATSA_GitHub2/Data/Comatsa_ForestLoss/FARForestCover_2010.tif")
 
 
 names(FL) <- "ForestLoss"
-FP <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/forest_2020.tif")
+FP <- raster("~/Downloads/forest_2020.tif")
 extent_polygon <- as(extent_wgs84, "SpatialPolygons")
 proj4string(extent_polygon) <- CRS("+proj=longlat +datum=WGS84")
 extent_polygon_transformed <- spTransform(extent_polygon, crs(FP))
@@ -178,11 +179,11 @@ transformed_extent <- extent(extent_polygon_transformed)
 FP <- crop(FP, transformed_extent)
 
 
-FPred <- raster("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/clipped_deforestation_2050.img")
+FPred <- raster("~/Downloads/clipped_deforestation_2050.img")
 #F2020 <- raster("Data/clipped_deforestation_2020.img")
 names(FP) <- "ForestTot"
-bound <- read_sf("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/comatsa_sud_boundary.shp")
-buffer <- read_sf("D:/GitHub/COMATSA_GitHub2/Data/spatial_data/comatsa_buffer_sites.shp")
+bound <- read_sf("~/Documents/covariate_tif/comatsa_sud_boundary.shp")
+buffer <- read_sf("~/Documents/covariate_tif/comatsa_buffer_sites.shp")
 buffer <- st_transform(buffer, crs = 4326)
 bound <- st_transform(bound ,crs = 4326)
 
