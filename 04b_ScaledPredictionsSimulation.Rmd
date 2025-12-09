@@ -6,6 +6,140 @@ output: html_document
 ---
 
 
+```{r}
+library(tidyverse);library(MuMIn);library(rsq);library(lme4);library(lmerTest);library(ggpubr)
+
+albi_density <- read.csv("~/COMATSA_Submission/Data/albi_dat.csv")
+allo_density <- read.csv("~/COMATSA_Submission/Data/allocebus_dat.csv")
+avahi_density <- read.csv("~/COMATSA_Submission/Data/avahi_dat.csv")
+cheiro_density <- read.csv("~/COMATSA_Submission/Data/cheirogaleus_dat.csv")
+lepi_density <- read.csv("~/COMATSA_Submission/Data/lepilemur_dat.csv")
+rubri_density <- read.csv("~/COMATSA_Submission/Data/rubriventer_dat.csv")
+prop_density <- read.csv("~/COMATSA_Submission/Data/prop_dat.csv")
+micro_density <- read.csv("~/COMATSA_Submission/Data/microcebus_dat.csv")
+hapa_density <- read.csv("~/COMATSA_Submission/Data/hapa_dat.csv")
+
+
+albi_density$Species <- "Eulemur_albifrons"
+allo_density$Species <- "Allocebus_trichotis"
+avahi_density$Species <- "Avahi_laniger"
+cheiro_density$Species <- "Cheirogaleus_crossleyi"
+lepi_density$Species <- "lepilemur_occidentalis"
+rubri_density$Species <- "Eulemur_rubriventer"
+prop_density$Species <- "Propithecus_candidus"
+lepi_density$Species <- "Lepilemur_saeli"
+micro_density$Species <- "Microcebus_lehilahytsara"
+hapa_density$Species <- "Hapalemur_occidentalis"
+
+lemur_densities <- rbind(albi_density, allo_density, avahi_density, cheiro_density, lepi_density, rubri_density, prop_density, micro_density, hapa_density) %>% rename(SiteTransect = Site_Transect)
+
+habitat <- read.csv("~/COMATSA_Submission/Data/habitat_covs.csv")
+
+densities_habitat <- left_join(lemur_densities, habitat, by=c("SiteTransect", "Species"))
+
+```
+
+```{r Lemur Density Heatmap}
+
+lemur_densities2 <- lemur_densities
+
+lemur_densities2$Species[lemur_densities2$Species=="Allocebus_trichotis"] <- "A. trichotis"
+lemur_densities2$Species[lemur_densities2$Species=="Microcebus_lehilahytsara"] <- "M. lehilahytsara"
+lemur_densities2$Species[lemur_densities2$Species=="Avahi_laniger"] <- "A. laniger"
+lemur_densities2$Species[lemur_densities2$Species=="Propithecus_candidus"] <- "P. candidus"
+lemur_densities2$Species[lemur_densities2$Species=="Cheirogaleus_crossleyi"] <- "C. crossleyi"
+lemur_densities2$Species[lemur_densities2$Species=="Lepilemur_saeli"] <- "L. seali"
+lemur_densities2$Species[lemur_densities2$Species=="Eulemur_rubriventer"] <- "E. rubriventer"
+lemur_densities2$Species[lemur_densities2$Species=="Eulemur_albifrons"] <- "E. albifrons"
+lemur_densities2$Species[lemur_densities2$Species=="Hapalemur_occidentalis"] <- "H. occidentalis"
+
+lemur_densities2$Site[lemur_densities2$Site=="Ambavala"] <- "A"
+lemur_densities2$Site[lemur_densities2$Site=="Ambodihasina"] <- "B"
+lemur_densities2$Site[lemur_densities2$Site=="Ambodimandresy"] <- "C"
+lemur_densities2$Site[lemur_densities2$Site=="Ambodivoara"] <- "D"
+lemur_densities2$Site[lemur_densities2$Site=="AmbodivohitraKobahina"] <- "E"
+lemur_densities2$Site[lemur_densities2$Site=="Androfiabe"] <- "F"
+lemur_densities2$Site[lemur_densities2$Site=="Antanambe"] <- "G"
+lemur_densities2$Site[lemur_densities2$Site=="Betaolana"] <- "H"
+lemur_densities2$Site[lemur_densities2$Site=="Befamatra"] <- "I"
+
+lemur_densities2$SiteTransect <- paste0(lemur_densities2$Site, lemur_densities2$Transect)
+
+lemur_densities2$Species <- factor(lemur_densities2$Species, levels = c("A. trichotis", "C. crossleyi", "M. lehilahytsara", "L. seali", "A. laniger", "P. candidus", "E. albifrons", "E. rubriventer", "H. occidentalis"))
+
+density_heatmap <- ggplot(data= lemur_densities2, aes(x=Species, y=SiteTransect, fill= sqrt(Density_km2)))+
+  geom_tile(color = "white")+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_fill_viridis_c(direction = -1,option="magma")+
+  ylab("Transect")+
+  guides(fill=guide_legend(title=  expression(atop("Pop. Density", "(Ind./" * km^2 * ")"))))+
+  geom_vline(xintercept = 5.5, linetype = "dashed", size = 1.5)
+
+lemur_densities3 <- lemur_densities2 %>% filter(Species =="E. albifrons"|Species =="E. rubriventer"|Species =="H. occidentalis"|Species =="P. candidus") %>% pivot_wider(names_from = Species, values_from = Density_km2)
+
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="C. crossleyi"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="M. lehilahytsara"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="A. laniger"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="A. trichotis"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="L. seali"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="E. albifrons"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="E. rubriventer"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="P. candidus"]))
+mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="H. occidentalis"]))
+
+```
+
+```{r Lemur species dataframes}
+densities_habitat_allo <- densities_habitat[densities_habitat$Species=="Allocebus_trichotis",]
+densities_habitat_micro <- densities_habitat[densities_habitat$Species=="Microcebus_lehilahytsara",]
+densities_habitat_avahi <- densities_habitat[densities_habitat$Species=="Avahi_laniger",]
+densities_habitat_prop <- densities_habitat[densities_habitat$Species=="Propithecus_candidus",]
+densities_habitat_cheiro <- densities_habitat[densities_habitat$Species=="Cheirogaleus_crossleyi",]
+densities_habitat_lepi <- densities_habitat[densities_habitat$Species=="Lepilemur_saeli",]
+densities_habitat_rubri <- densities_habitat[densities_habitat$Species=="Eulemur_rubriventer",]
+densities_habitat_albi <- densities_habitat[densities_habitat$Species=="Eulemur_albifrons",]
+densities_habitat_hapa <- densities_habitat[densities_habitat$Species=="Hapalemur_occidentalis",]
+
+ggplot(data=densities_habitat_allo, aes(x=Density_km2))+geom_histogram()
+shapiro.test(densities_habitat_allo$Density_km2)
+shapiro.test(log(densities_habitat_allo$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_allo$Density_km2))
+
+shapiro.test(densities_habitat_micro$Density_km2)
+shapiro.test(log(densities_habitat_micro$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_micro$Density_km2))
+
+shapiro.test(densities_habitat_avahi$Density_km2)
+shapiro.test(log(densities_habitat_avahi$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_avahi$Density_km2))
+
+shapiro.test(densities_habitat_prop$Density_km2)
+shapiro.test(log(densities_habitat_prop$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_prop$Density_km2))
+
+shapiro.test(densities_habitat_cheiro$Density_km2)
+shapiro.test(log(densities_habitat_cheiro$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_cheiro$Density_km2))
+
+shapiro.test(densities_habitat_lepi$Density_km2)
+shapiro.test(log(densities_habitat_lepi$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_lepi$Density_km2))
+
+shapiro.test(densities_habitat_rubri$Density_km2)
+shapiro.test(log(densities_habitat_rubri$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_rubri$Density_km2))
+
+shapiro.test(densities_habitat_albi$Density_km2)
+shapiro.test(log(densities_habitat_albi$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_albi$Density_km2))
+
+shapiro.test(densities_habitat_lepi$Density_km2)
+shapiro.test(log(densities_habitat_lepi$Density_km2+1))
+shapiro.test(sqrt(densities_habitat_lepi$Density_km2))
+
+```
+
 
 ```{r Load packages and data}
 #install.packages("rgdal", repos="http://R-Forge.R-project.org")
@@ -719,7 +853,7 @@ prop_predictions
 prop_predictions2 <- data.frame(prop_predictions)
 colnames(prop_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
-write.csv(prop_predictions2 ,"~COMATSA_Submission/prop_predictions2.csv")
+write.csv(prop_predictions2 ,"~/COMATSA_Submission/prop_predictions2.csv")
 #prop_predictions2 <- read.csv("prop_predictions2.csv")
 
 ggplot(prop_predictions2, aes(x=PA2020)) + ggtitle("Prop")+ 
@@ -807,18 +941,18 @@ rubri_coefficients <- rubri_coefficients[, sort(colnames(rubri_coefficients))]
 
 
 ##loop not loop
-coef_Intercept_rubri<-  rnorm(1000, mean=1.62275 , sd=0.63366)
-coef_FLP_rubri<-  rnorm(1000, mean=0.77366  , sd=0.71571 )
-coef_CH_rubri<-  rnorm(1000, mean=0.07271, sd=0.39419)
-coef_Rug_rubri<-  rnorm(1000, mean=0.08239 , sd=0.36227)
-coef_Elev_rubri<-  rnorm(1000, mean=0.06248 , sd=0.33894)
+coef_Intercept_rubri<-  rnorm(1000, mean=1.62511 , sd=0.63509)
+coef_FLP_rubri<-  rnorm(1000, mean=0.77578  , sd=0.71642 )
+coef_CH_rubri<-  rnorm(1000, mean=0.07257, sd=0.39472)
+coef_Rug_rubri<-  rnorm(1000, mean=0.08322 , sd=0.36333)
+coef_Elev_rubri<-  rnorm(1000, mean=0.06208 , sd=0.33913)
 
 
 coefs_rubri_test <- data.frame(Intercept=coef_Intercept_rubri,ForestLossProp=coef_FLP_rubri, CanopyHeight=coef_CH_rubri, Ruggedness = coef_Rug_rubri, Elevation=coef_Elev_rubri)
 
 
-rubri_predictions <- matrix(NA, nrow = 10, ncol = 4)
-for (i in 1:10) {
+rubri_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
  
   coefs <-coefs_rubri_test[i,]
 
@@ -866,7 +1000,7 @@ for (i in 1:10) {
 rubri_predictions2 <- data.frame(rubri_predictions)
 colnames(rubri_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
-#write.csv(rubri_predictions2 ,"rubri_predictions2.csv")
+write.csv(rubri_predictions2 ,"~/COMATSA_Submission/rubri_predictions2.csv")
 #rubri_predictions2 <- read.csv("rubri_predictions2.csv")
 
 ggplot(rubri_predictions2, aes(x=PA2020)) + 
@@ -954,18 +1088,18 @@ albi_coefficients <- albi_coefficients[, sort(colnames(albi_coefficients))]
 
 
 ##loop not loop
-coef_Intercept_albi<-  rnorm(1000, mean=2.1755, sd=0.8327)
-coef_FLP_albi<-  rnorm(1000, mean=-0.02962   , sd=0.36228  )
-coef_CH_albi<-  rnorm(1000, mean=0.19279 , sd= 0.48082  )
-coef_Rug_albi<-  rnorm(1000, mean= 0.06829  , sd=0.43583 )
-coef_Elev_albi<-  rnorm(1000, mean=0.69973  , sd=0.78580)
+coef_Intercept_albi<-  rnorm(1000, mean=2.17797, sd=0.83345)
+coef_FLP_albi<-  rnorm(1000, mean=-0.02992   , sd=0.36254  )
+coef_CH_albi<-  rnorm(1000, mean=0.19257 , sd= 0.48077  )
+coef_Rug_albi<-  rnorm(1000, mean= 0.07081  , sd=0.43723 )
+coef_Elev_albi<-  rnorm(1000, mean=0.69968  , sd=0.78591)
 
 
 coefs_albi_test <- data.frame(Intercept=coef_Intercept_albi,ForestLossProp=coef_FLP_albi, CanopyHeight=coef_CH_albi, Ruggedness = coef_Rug_albi, Elevation=coef_Elev_albi)
 
 
-albi_predictions <- matrix(NA, nrow = 10, ncol = 4)
-for (i in 1:10) {
+albi_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
  
   coefs <-coefs_albi_test[i,]
 
@@ -1014,7 +1148,7 @@ for (i in 1:10) {
 albi_predictions2 <- data.frame(albi_predictions)
 colnames(albi_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
-#write.csv(albi_predictions2 ,"albi_predictions2.csv")
+write.csv(albi_predictions2 ,"~/COMATSA_Submission/albi_predictions2.csv")
 #albi_predictions2 <- read.csv("albi_predictions2.csv")
 
 ggplot(albi_predictions2, aes(x=PA2020)) + ggtitle("Albi") +
@@ -1115,8 +1249,8 @@ coef_Elev_cheiro<-  rnorm(1000, mean=-0.01926  , sd=0.50870 )
 coefs_cheiro_test <- data.frame(Intercept=coef_Intercept_cheiro,ForestLossProp=coef_FLP_cheiro, CanopyHeight=coef_CH_cheiro, Ruggedness = coef_Rug_cheiro, Elevation=coef_Elev_cheiro)
 
 
-cheiro_predictions <- matrix(NA, nrow = 10, ncol = 4)
-for (i in 1:10) {
+cheiro_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
  
   coefs <-coefs_cheiro_test[i,]
 
@@ -1165,7 +1299,7 @@ for (i in 1:10) {
 cheiro_predictions2 <- data.frame(cheiro_predictions)
 colnames(cheiro_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
-#write.csv(cheiro_predictions2 ,"cheiro_predictions2.csv")
+write.csv(cheiro_predictions2 ,"~/COMATSA_Submission/cheiro_predictions2.csv")
 #cheiro_predictions2 <- read.csv("cheiro_predictions2.csv")
 
 ggplot(cheiro_predictions2, aes(x=PA2020)) + ggtitle("Cheiro")+
@@ -1263,8 +1397,8 @@ coef_Elev_micro<-  rnorm(1000, mean=0.58976  , sd=0.85575)
 coefs_micro_test <- data.frame(Intercept=coef_Intercept_micro,ForestLossProp=coef_FLP_micro, CanopyHeight=coef_CH_micro, Ruggedness = coef_Rug_micro, Elevation=coef_Elev_micro)
 
 
-micro_predictions <- matrix(NA, nrow = 10, ncol = 4)
-for (i in 1:10) {
+micro_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
  
   coefs <-coefs_micro_test[i,]
 
@@ -1313,7 +1447,7 @@ for (i in 1:10) {
 micro_predictions2 <- data.frame(micro_predictions)
 colnames(micro_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
-#write.csv(micro_predictions2 ,"micro_predictions2.csv")
+write.csv(micro_predictions2 ,"~/COMATSA_Submission/micro_predictions2.csv")
 #micro_predictions2 <- read.csv("micro_predictions2.csv")
 
 ggplot(micro_predictions2, aes(x=PA2020)) + ggtitle("Micro")+
@@ -1401,18 +1535,18 @@ lepi_map_2050 <- lepi_2050
 
 
 ##loop not loop
-coef_Intercept_lepi<-  rnorm(1000, mean=5.16018, sd=1.09044)
-coef_FLP_lepi<-  rnorm(1000, mean=0.06081 , sd=0.24297 )
-coef_CH_lepi<-  rnorm(1000, mean=0.35827, sd=0.49973)
-coef_Rug_lepi<-  rnorm(1000, mean=-0.39048, sd=0.57154)
-coef_Elev_lepi<-  rnorm(1000, mean=-0.17120  , sd=0.38514 )
+coef_Intercept_lepi<-  rnorm(1000, mean=5.16662, sd=1.09496)
+coef_FLP_lepi<-  rnorm(1000, mean=0.06283 , sd=0.24643 )
+coef_CH_lepi<-  rnorm(1000, mean=0.35135, sd=0.50883)
+coef_Rug_lepi<-  rnorm(1000, mean=-0.39444, sd=0.57594)
+coef_Elev_lepi<-  rnorm(1000, mean=-0.16708  , sd=0.38287 )
 
 
 coefs_lepi_test <- data.frame(Intercept=coef_Intercept_lepi,ForestLossProp=coef_FLP_lepi, CanopyHeight=coef_CH_lepi, Ruggedness = coef_Rug_lepi, Elevation=coef_Elev_lepi)
 
 
-lepi_predictions <- matrix(NA, nrow = 10, ncol = 4)
-for (i in 1:10) {
+lepi_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
  
   coefs <-coefs_lepi_test[i,]
 
@@ -1461,7 +1595,7 @@ for (i in 1:10) {
 lepi_predictions2 <- data.frame(lepi_predictions)
 colnames(lepi_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
-#write.csv(lepi_predictions2 ,"lepi_predictions2.csv")
+write.csv(lepi_predictions2 ,"~/COMATSA_Submission/lepi_predictions.csv")
 #lepi_predictions2 <- read.csv("lepi_predictions2.csv")
 
 ggplot(lepi_predictions2, aes(x=PA2020)) + ggtitle("Lepi")+
@@ -1559,8 +1693,8 @@ coef_Elev_avahi<-  rnorm(1000, mean=-0.2868  , sd=0.6246 )
 coefs_avahi_test <- data.frame(Intercept=coef_Intercept_avahi,ForestLossProp=coef_FLP_avahi, CanopyHeight=coef_CH_avahi, Ruggedness = coef_Rug_avahi, Elevation=coef_Elev_avahi)
 
 
-avahi_predictions <- matrix(NA, nrow = 10, ncol = 4)
-for (i in 1:10) {
+avahi_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
  
   coefs <-coefs_avahi_test[i,]
 
@@ -1609,7 +1743,7 @@ for (i in 1:10) {
 avahi_predictions2 <- data.frame(avahi_predictions)
 colnames(avahi_predictions2) <- c("Buffer2020", "PA2020", "Buffer2050", "PA2050")
 
-#write.csv(avahi_predictions2 ,"avahi_predictions2.csv")
+write.csv(avahi_predictions2 ,"~/COMATSA_Submission/avahi_predictions2.csv")
 #avahi_predictions2  <- read.csv("avahi_predictions2.csv")
 
 ggplot(avahi_predictions2, aes(x=PA2020)) + ggtitle("Avahi")+
@@ -1707,8 +1841,8 @@ coef_Elev_hapa<-  rnorm(1000, mean=0.009724, sd=0.051925)
 coefs_hapa_test <- data.frame(Intercept=coef_Intercept_hapa,ForestLossProp=coef_FLP_hapa, CanopyHeight=coef_CH_hapa, Ruggedness = coef_Rug_hapa, Elevation=coef_Elev_hapa)
 
 
-hapa_predictions <- matrix(NA, nrow = 10, ncol = 4)
-for (i in 1:10) {
+hapa_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
  
   coefs <-coefs_hapa_test[i,]
 
@@ -1765,7 +1899,7 @@ ggplot(hapa_predictions2, aes(x=PA2020)) +
   geom_vline(aes(xintercept=median(na.omit(hapa_predictions2$PA2020)) ),
             color="black", linetype="dashed", size=1)
 
-#write.csv(hapa_predictions2 ,"hapa_predictions2.csv")
+write.csv(hapa_predictions2 ,"~/COMATSA_Submission/hapa_predictions.csv")
 ```
  
 ```{r scaled allo}
@@ -1852,8 +1986,8 @@ coef_Elev_allo<-  rnorm(1000, mean=-0.2194  , sd=0.4351)
 coefs_allo_test <- data.frame(Intercept=coef_Intercept_allo,ForestLossProp=coef_FLP_allo, CanopyHeight=coef_CH_allo, Ruggedness = coef_Rug_allo, Elevation=coef_Elev_allo)
 
 
-allo_predictions <- matrix(NA, nrow = 10, ncol = 4)
-for (i in 1:10) {
+allo_predictions <- matrix(NA, nrow = 1000, ncol = 4)
+for (i in 1:1000) {
  
   coefs <-coefs_allo_test[i,]
 
@@ -1910,7 +2044,7 @@ ggplot(allo_predictions2, aes(x=PA2020)) +
   geom_vline(aes(xintercept=median(na.omit(allo_predictions2$PA2020)) ),
             color="black", linetype="dashed", size=1)
 
-#write.csv(allo_predictions2 ,"allo_predictions2.csv")
+write.csv(allo_predictions2 ,"~/COMATSA_Submission/allo_predictions.csv")
 ```
  
 ```{r}

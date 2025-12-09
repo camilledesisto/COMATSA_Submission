@@ -50,116 +50,6 @@ survey_all$N_ad <- survey_all$N_total -survey_all$N_juv
 nobs <- survey_all %>% dplyr::select(Site, Transect, Nom_sientifique, Type, Repetition)%>%drop_na(Nom_sientifique) %>%group_by(Site, Transect, Nom_sientifique, Type) %>% mutate(NObs =n())%>% distinct()
 ```
 
-```{r tristan seasonality tests in progress}
-#nobs_m <- survey_all %>% filter(Nom_sientifique =="Microcebus_lehilahytsara" & Site.x!= "Ambodihasina"& Site.x!= "Androfiabe" ) %>% dplyr::select(Site.x, Transect.x, Type, Repetition, Length) %>%group_by(Site.x, Transect.x, Type, Repetition, Length) %>% summarise(NObs = n())
-survey_all1 <- left_join(survey_all, transect_lengths , by =c("Site_Transect", "Site", "Transect"))
-
-nobs_m <- survey_all1 %>% filter(Nom_sientifique =="Microcebus_lehilahytsara") %>% dplyr::select(Site, Transect, Type, Repetition, Length) %>%group_by(Site, Transect, Type, Repetition, Length) %>% summarise(NObs = n())
-
-
-survey_all1$calendar <- survey_all1$Mois-1 + survey_all1$Jour/30
-survey_all1$calendar[is.na(survey_all1$calendar)]<- 6
-survey_all1$calendar[survey_all1$calendar<3]<- survey_all1$calendar[survey_all1$calendar<3]+12
-
-reps <- survey_all1  %>% dplyr::select(Site, Transect, Type, Repetition, Length, calendar) %>%group_by(Site, Transect, Type, Repetition, Length, calendar) 
-#reps <- reps %>% filter(Site!= "Ambodihasina"& Site!= "Androfiabe")
-
-
-test_micro <- left_join(reps, nobs_m, by = c("Site", "Transect", "Type", "Repetition", "Length"))
-test_micro$NObs[is.na(test_micro$NObs)] <- 0
-test_micro$EncounterRate <- 1000*test_micro$NObs/test_micro$Length
-
-# Plot
-ggplot(test_micro, aes(x = calendar, y = EncounterRate)) +
-  geom_point(alpha = 0.6) +
-  geom_smooth(method = "loess", se = FALSE, linewidth = 1.2) +
-  labs(
-    title = "Cheiro Encounter Rate Over Time",
-    x = "Calendar Date",
-    y = "Encounter Rate",
-    color = NULL
-  ) +
-  theme_minimal()
-
-####################
-
-test_micro$calendar_num <- as.numeric(test_micro$calendar)
-
-# Period is 12 → angular frequency:
-omega <- 2 * pi / 12
-
-# Fit sine + cosine model (linear in parameters)
-fit <- lm(EncounterRate ~ sin(omega * calendar_num) + cos(omega * calendar_num),
-          data = test_micro)
-summary(fit)
-# Add fitted values
-test_micro$fit_sine <- predict(fit)
-
-# Plot scatter + sine wave fit
-ggplot(test_micro, aes(x = calendar_num, y = EncounterRate)) +
-  geom_point(alpha = 0.6) +
-  geom_line(aes(y = fit_sine), color = "blue", linewidth = 1.2) +
-  labs(
-    title = "Microcebus Encounter Rate fit Sine wave",
-    x = "Calendar",
-    y = "Encounter Rate"
-  ) +
-  theme_minimal()
-
-
-test_all1o$calendar_num <- as.numeric(test_all1o$calendar)
-
-# Period is 12 → angular frequency:
-omega <- 2 * pi / 12
-
-# Fit sine + cosine model (linear in parameters)
-fit <- lm(EncounterRate ~ sin(omega * calendar_num) + cos(omega * calendar_num),
-          data = test_all1o)
-
-# Add fitted values
-test_all1o$fit_sine <- predict(fit)
-
-# Plot scatter + sine wave fit
-ggplot(test_all1o, aes(x = calendar_num, y = EncounterRate)) +
-  geom_point(alpha = 0.6) +
-  geom_line(aes(y = fit_sine), color = "blue", linewidth = 1.2) +
-  labs(
-    title = "allocebus Encounter Rate fit Sine wave",
-    x = "Calendar",
-    y = "Encounter Rate"
-  ) +
-  theme_minimal()
-
-
-
-
-
-
-
-
-
-
-#Allocebus
-nobs_a <- survey_all1 %>% filter(Nom_sientifique =="Allocebus_trichotis") %>% dplyr::select(Site, Transect, Type, Repetition, Length) %>%group_by(Site, Transect, Type, Repetition, Length) %>% summarise(NObs = n())
-
-test_all1o <- left_join(reps, nobs_a, by = c("Site", "Transect", "Type", "Repetition", "Length"))
-test_all1o$NObs[is.na(test_all1o$NObs)] <- 0
-test_all1o$EncounterRate <- 1000*test_all1o$NObs/test_all1o$Length
-
-# Plot
-ggplot(test_all1o, aes(x = calendar, y = EncounterRate)) +
-  geom_point(alpha = 0.6) +
-  geom_smooth(method = "loess", se = FALSE, linewidth = 1.2) +
-  labs(
-    title = "Allocebus Encounter Rate Over Time",
-    x = "Calendar Date",
-    y = "Encounter Rate",
-    color = NULL
-  ) +
-  theme_minimal()
-
-```
-
 ```{r }
 
 nobs <- pivot_wider(nobs, names_from = Type, values_from = NObs)
@@ -971,6 +861,116 @@ hapa_dat$Density_km2 <- hapa_dat$Density*1000000
 write.csv(hapa_dat,"~/COMATSA_Submission/Data/hapa_dat.csv")
 
 ```
+
+
+```{r seasonality tests}
+#nobs_m <- survey_all %>% filter(Nom_sientifique =="Microcebus_lehilahytsara" & Site.x!= "Ambodihasina"& Site.x!= "Androfiabe" ) %>% dplyr::select(Site.x, Transect.x, Type, Repetition, Length) %>%group_by(Site.x, Transect.x, Type, Repetition, Length) %>% summarise(NObs = n())
+
+survey_all1 <- left_join(survey_all, transect_lengths , by =c("Site_Transect", "Site", "Transect"))
+
+nobs_m <- survey_all1 %>% filter(Nom_sientifique =="Microcebus_lehilahytsara") %>% dplyr::select(Site, Transect, Type, Repetition, Length) %>%group_by(Site, Transect, Type, Repetition, Length) %>% summarise(NObs = n())
+
+
+survey_all1$calendar <- survey_all1$Mois-1 + survey_all1$Jour/30
+survey_all1$calendar[is.na(survey_all1$calendar)]<- 6
+survey_all1$calendar[survey_all1$calendar<3]<- survey_all1$calendar[survey_all1$calendar<3]+12
+
+reps <- survey_all1  %>% dplyr::select(Site, Transect, Type, Repetition, Length, calendar) %>%group_by(Site, Transect, Type, Repetition, Length, calendar) 
+#reps <- reps %>% filter(Site!= "Ambodihasina"& Site!= "Androfiabe")
+
+
+test_micro <- left_join(reps, nobs_m, by = c("Site", "Transect", "Type", "Repetition", "Length"))
+test_micro$NObs[is.na(test_micro$NObs)] <- 0
+test_micro$EncounterRate <- 1000*test_micro$NObs/test_micro$Length
+
+# Plot
+ggplot(test_micro, aes(x = calendar, y = EncounterRate)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "loess", se = FALSE, linewidth = 1.2) +
+  labs(
+    title = "Micro Encounter Rate Over Time",
+    x = "Calendar Date",
+    y = "Encounter Rate",
+    color = NULL
+  ) +
+  theme_minimal()
+
+####################
+
+test_micro$calendar_num <- as.numeric(test_micro$calendar)
+
+# Period is 12 → angular frequency:
+omega <- 2 * pi / 12
+
+# Fit sine + cosine model (linear in parameters)
+fit <- lm(EncounterRate ~ sin(omega * calendar_num) + cos(omega * calendar_num),
+          data = test_micro)
+summary(fit)
+# Add fitted values
+test_micro$fit_sine <- predict(fit)
+
+# Plot scatter + sine wave fit
+ggplot(test_micro, aes(x = calendar_num, y = EncounterRate)) +
+  geom_point(alpha = 0.6) +
+  geom_line(aes(y = fit_sine), color = "blue", linewidth = 1.2) +
+  labs(
+    title = "Micro Encounter Rate fit Sine wave",
+    x = "Calendar",
+    y = "Encounter Rate"
+  ) +
+  theme_minimal()
+
+
+
+
+
+
+
+#Allocebus
+nobs_a <- survey_all1 %>% filter(Nom_sientifique =="Allocebus_trichotis") %>% dplyr::select(Site, Transect, Type, Repetition, Length) %>%group_by(Site, Transect, Type, Repetition, Length) %>% summarise(NObs = n())
+
+test_all1o <- left_join(reps, nobs_a, by = c("Site", "Transect", "Type", "Repetition", "Length"))
+test_all1o$NObs[is.na(test_all1o$NObs)] <- 0
+test_all1o$EncounterRate <- 1000*test_all1o$NObs/test_all1o$Length
+
+# Plot
+ggplot(test_all1o, aes(x = calendar, y = EncounterRate)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "loess", se = FALSE, linewidth = 1.2) +
+  labs(
+    title = "Allocebus Encounter Rate Over Time",
+    x = "Calendar Date",
+    y = "Encounter Rate",
+    color = NULL
+  ) +
+  theme_minimal()
+
+
+test_all1o$calendar_num <- as.numeric(test_all1o$calendar)
+
+# Period is 12 → angular frequency:
+omega <- 2 * pi / 12
+
+# Fit sine + cosine model (linear in parameters)
+fit <- lm(EncounterRate ~ sin(omega * calendar_num) + cos(omega * calendar_num),
+          data = test_all1o)
+
+# Add fitted values
+test_all1o$fit_sine <- predict(fit)
+
+# Plot scatter + sine wave fit
+ggplot(test_all1o, aes(x = calendar_num, y = EncounterRate)) +
+  geom_point(alpha = 0.6) +
+  geom_line(aes(y = fit_sine), color = "blue", linewidth = 1.2) +
+  labs(
+    title = "allocebus Encounter Rate fit Sine wave",
+    x = "Calendar",
+    y = "Encounter Rate"
+  ) +
+  theme_minimal()
+
+```
+
 
 ```{r Co-occurence}
 library(cooccur)
