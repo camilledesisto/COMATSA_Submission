@@ -55,7 +55,7 @@ bound <- st_transform(bound ,crs = 4326)
 
 ```
 
-```{r Creat Forest Loss DFs for Each Lemur Species}
+```{r Create Forest Loss DFs for Each Lemur Species}
 
 focal_weights_allo <- focalMat(FL, 180.2, type = "circle")
 focal_weights_allo[focal_weights_allo > 0] <- 1  
@@ -214,7 +214,6 @@ FP <- projectRaster(FP,DEM,method = "ngb")
 F2050 <- projectRaster(F2050,DEM,  method = "ngb")
 FPred <- projectRaster(FPred,DEM,  method = "ngb")
 ```
-
 
 ```{r covariate buffer extractions}
 ############ prop covariate buffer extractions

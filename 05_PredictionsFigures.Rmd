@@ -12,15 +12,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(ggplot2);library(ggpubr);library(terra);library(raster)
 
-prop_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/prop_predictions2.csv")
-allo_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/allo_predictions2.csv")
-avahi_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/avahi_predictions2.csv")
-albi_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/albi_predictions2.csv")
-hapa_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/hapa_predictions2.csv")
-lepi_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/lepi_predictions2.csv")
-micro_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/micro_predictions2.csv")
-cheiro_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/cheiro_predictions2.csv")
-rubri_predictions <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/rubri_predictions2.csv")
+prop_predictions <- read.csv("~/Documents/GitHub/COMATSA_Submission/prop_predictions2.csv")
+allo_predictions <- read.csv("~/Documents/GitHub/COMATSA_Submission/allo_predictions.csv")
+avahi_predictions <- read.csv("~/Documents/GitHub/COMATSA_Submission/avahi_predictions2.csv")
+albi_predictions <- read.csv("~/Documents/GitHub/COMATSA_Submission/albi_predictions2.csv")
+hapa_predictions <- read.csv("~/Documents/GitHub/COMATSA_Submission/hapa_predictions.csv")
+lepi_predictions <- read.csv("~/Documents/GitHub/COMATSA_Submission/lepi_predictions.csv")
+micro_predictions <- read.csv("~/Documents/GitHub/COMATSA_Submission/micro_predictions2.csv")
+cheiro_predictions <- read.csv("~/Documents/GitHub/COMATSA_Submission/cheiro_predictions2.csv")
+rubri_predictions <- read.csv("~/Documents/GitHub/COMATSA_Submission/rubri_predictions2.csv")
 
 prop_predictions$pfl2020 <- (prop_predictions$PA2020 - prop_predictions$PA2050)/prop_predictions$PA2020
 allo_predictions$pfl2020 <- (allo_predictions$PA2020 - allo_predictions$PA2050)/allo_predictions$PA2020
@@ -32,15 +32,15 @@ micro_predictions$pfl2020 <- (micro_predictions$PA2020 - micro_predictions$PA205
 cheiro_predictions$pfl2020 <- (cheiro_predictions$PA2020 - cheiro_predictions$PA2050)/cheiro_predictions$PA2020
 rubri_predictions$pfl2020 <- (rubri_predictions$PA2020 - rubri_predictions$PA2050)/rubri_predictions$PA2020
 
-pred_prop <- raster("~/Documents/GitHub/COMATSA_GitHub2/prop_pred.tif")
-pred_allo <- raster("~/Documents/GitHub/COMATSA_GitHub2/allo_pred.tif")
-pred_avahi <- raster("~/Documents/GitHub/COMATSA_GitHub2/avahi_pred.tif")
-pred_albi <- raster("~/Documents/GitHub/COMATSA_GitHub2/albi_pred.tif")
-pred_hapa <- raster("~/Documents/GitHub/COMATSA_GitHub2/hapa_pred.tif")
-pred_lepi <- raster("~/Documents/GitHub/COMATSA_GitHub2/lepi_pred.tif")
-pred_micro <- raster("~/Documents/GitHub/COMATSA_GitHub2/micro_pred.tif")
-pred_cheiro <- raster("~/Documents/GitHub/COMATSA_GitHub2/cheiro_pred.tif")
-pred_rubri <- raster("~/Documents/GitHub/COMATSA_GitHub2/rubri_pred.tif")
+pred_prop <- raster("~/Documents/GitHub/COMATSA_Submission/prop_pred.tif")
+pred_allo <- raster("~/Documents/GitHub/COMATSA_Submission/allo_pred.tif")
+pred_avahi <- raster("~/Documents/GitHub/COMATSA_Submission/avahi_pred.tif")
+pred_albi <- raster("~/Documents/GitHub/COMATSA_Submission/albi_pred.tif")
+pred_hapa <- raster("~/Documents/GitHub/COMATSA_Submission/hapa_pred.tif")
+pred_lepi <- raster("~/Documents/GitHub/COMATSA_Submission/lepi_pred.tif")
+pred_micro <- raster("~/Documents/GitHub/COMATSA_Submission/micro_pred.tif")
+pred_cheiro <- raster("~/Documents/GitHub/COMATSA_Submission/cheiro_pred.tif")
+pred_rubri <- raster("~/Documents/GitHub/COMATSA_Submission/rubri_pred.tif")
 
 ```
 
@@ -129,6 +129,33 @@ summary_total$upper<- round(summary_total$upper,0)
 summary_total2 <- summary_total %>% dplyr::select(name, Species,mean:upper) %>% filter(name!="Buffer2050", name!= "Buffer2020") %>% arrange(name)
 
 write.csv(summary_total2, "summary_total2.csv")
+
+
+
+percent_diff_summary <- function(pred_df) {
+  pred_df %>%
+    transmute(
+      pct_diff = (PA2020 - PA2050)/PA2020  * 100
+    ) %>%
+    summarise(
+      mean   = mean(pct_diff),
+      median = median(pct_diff),
+      lower  = quantile(pct_diff, 0.025),
+      upper  = quantile(pct_diff, 0.975),
+      min    = min(pct_diff),
+      max    = max(pct_diff)
+    )
+}
+
+micro_pa_pct  <- percent_diff_summary(micro_predictions)
+allo_pa_pct   <- percent_diff_summary(allo_predictions)
+albi_pa_pct   <- percent_diff_summary(albi_predictions)
+avahi_pa_pct  <- percent_diff_summary(avahi_predictions)
+cheiro_pa_pct <- percent_diff_summary(cheiro_predictions)
+hapa_pa_pct   <- percent_diff_summary(hapa_predictions)
+lepi_pa_pct   <- percent_diff_summary(lepi_predictions)
+prop_pa_pct   <- percent_diff_summary(prop_predictions)
+
   
 ```
 
@@ -192,7 +219,8 @@ cheiro_plot <- ggplot(data = cheiro_predictions, aes(PA2020))+
   geom_vline(xintercept=cheiro_summary[3,2]$mean, linetype = "dashed", linewidth = 1)+
   geom_vline(xintercept=cheiro_summary[3,3]$median, linetype = "dotted", linewidth = 1)+
    labs(title = expression(italic("C. crossleyi")))+
-  xlab("Predicted Subopulation Size")
+  xlab("Predicted Subopulation Size")+
+  scale_x_continuous(labels = label_number())
 
 micro_plot <- ggplot(data = micro_predictions, aes(PA2020))+
   geom_density(fill = "violet", color = "violet")+
@@ -224,7 +252,7 @@ lepi_plot <- ggplot(data = lepi_predictions, aes(PA2020))+
    labs(title = expression(italic("L. seali")))+
   xlab("Predicted Subopulation Size")
 
-ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+pop_distribution_pa_2020 <- ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
 
 ```
 
@@ -280,15 +308,20 @@ albi_plot <- ggplot(data = albi_predictions, aes(PA2050))+
    labs(title = expression(italic("E. albifrons")))+
   xlab("Predicted Subopulation Size")
 
-cheiro_plot <- ggplot(data = cheiro_predictions, aes(PA2050))+
-  geom_density(fill = "violet", color = "violet")+
-  theme_classic()+
-  ylab("Density")+
-  geom_vline(xintercept=cheiro_pointestimates[4], linetype = "solid", linewidth = 1)+
-  geom_vline(xintercept=cheiro_summary[4,2]$mean, linetype = "dashed", linewidth = 1)+
-  geom_vline(xintercept=cheiro_summary[4,3]$median, linetype = "dotted", linewidth = 1)+
-   labs(title = expression(italic("C. crossleyi")))+
-  xlab("Predicted Subopulation Size")
+library(scales)
+cheiro_plot <- ggplot(data = cheiro_predictions, aes(PA2050)) +
+  geom_density(fill = "violet", color = "violet") +
+  theme_classic() +
+  ylab("Density") +
+  geom_vline(xintercept = cheiro_pointestimates[4],
+             linetype = "solid", linewidth = 1) +
+  geom_vline(xintercept = cheiro_summary[4,2]$mean,
+             linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = cheiro_summary[4,3]$median,
+             linetype = "dotted", linewidth = 1) +
+  labs(title = expression(italic("C. crossleyi"))) +
+  xlab("Predicted Subpopulation Size") +
+  scale_x_continuous(labels = label_number())
 
 micro_plot <- ggplot(data = micro_predictions, aes(PA2050))+
   geom_density(fill = "violet", color = "violet")+
@@ -320,7 +353,18 @@ lepi_plot <- ggplot(data = lepi_predictions, aes(PA2050))+
    labs(title = expression(italic("L. seali")))+
   xlab("Predicted Subopulation Size")
 
-ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+pop_distribution_pa_2050 <-ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+
+
+ggsave(
+  filename = "pop_distribution_pa_2050.png",
+  plot = pop_distribution_pa_2050,
+  width = 12,   
+  height = 8,
+  units = "in",
+  dpi = 600,        
+  device = "png"   
+)
 
 ```
 
@@ -384,7 +428,8 @@ cheiro_plot <- ggplot(data = cheiro_predictions, aes(Buffer2020))+
   geom_vline(xintercept=cheiro_summary[1,2]$mean, linetype = "dashed", linewidth = 1)+
   geom_vline(xintercept=cheiro_summary[1,3]$median, linetype = "dotted", linewidth = 1)+
    labs(title = expression(italic("C. crossleyi")))+
-  xlab("Predicted Subopulation Size")
+  xlab("Predicted Subopulation Size")+
+  scale_x_continuous(labels = label_number())
 
 micro_plot <- ggplot(data = micro_predictions, aes(Buffer2020))+
   geom_density(fill = "violet", color = "violet")+
@@ -416,7 +461,20 @@ lepi_plot <- ggplot(data = lepi_predictions, aes(Buffer2020))+
    labs(title = expression(italic("L. seali")))+
   xlab("Predicted Subopulation Size")
 
-ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+pop_distribution_buffer_2020 <-ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+
+
+
+ggsave(
+  filename = "pop_distribution_buffer_2020.png",
+  plot = pop_distribution_buffer_2020,
+  width = 12,   
+  height = 8,
+  units = "in",
+  dpi = 600,        
+  device = "png"   
+)
+
 
 ```
 
@@ -513,7 +571,19 @@ lepi_plot <- ggplot(data = lepi_predictions, aes(Buffer2050))+
   xlab("Predicted Subopulation Size")
 
 
-ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+pop_distribution_buffer_2050 <-ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+
+
+
+ggsave(
+  filename = "pop_distribution_buffer_2050.png",
+  plot = pop_distribution_buffer_2050,
+  width = 12,   
+  height = 8,
+  units = "in",
+  dpi = 600,        
+  device = "png"   
+)
 
 
 ```
@@ -524,7 +594,7 @@ allo_plot <- ggplot(data = allo_predictions, aes(pfl2020))+
   geom_density(fill = "violet", color = "violet")+
   theme_classic()+
   ylab("Density")+
-  geom_vline(xintercept=((allo_pointestimates[2]-allo_pointestimates[4])/allo_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((allo_pointestimates[2,]-allo_pointestimates[4,])/allo_pointestimates[2,]), linetype = "solid", linewidth = 1)+
   geom_vline(xintercept=((allo_summary[3,2]$mean-allo_summary[4,2]$mean)/allo_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
   geom_vline(xintercept=((allo_summary[3,3]$median-allo_summary[4,3]$median)/allo_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
    labs(title = expression(italic("A. trichotis")))+
@@ -534,7 +604,7 @@ albi_plot <- ggplot(data = albi_predictions, aes(pfl2020))+
   geom_density(fill = "violet", color = "violet")+
   theme_classic()+
   ylab("Density")+
-  geom_vline(xintercept=((albi_pointestimates[2]-albi_pointestimates[4])/albi_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((albi_pointestimates[2,]-albi_pointestimates[4,])/albi_pointestimates[2,]), linetype = "solid", linewidth = 1)+
   geom_vline(xintercept=((albi_summary[3,2]$mean-albi_summary[4,2]$mean)/albi_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
   geom_vline(xintercept=((albi_summary[3,3]$median-albi_summary[4,3]$median)/albi_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
    labs(title = expression(italic("E. albifrons")))+
@@ -544,7 +614,7 @@ avahi_plot <- ggplot(data = avahi_predictions, aes(pfl2020))+
   geom_density(fill = "violet", color = "violet")+
   theme_classic()+
   ylab("Density")+
-  geom_vline(xintercept=((avahi_pointestimates[2]-avahi_pointestimates[4])/avahi_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((avahi_pointestimates[2,]-avahi_pointestimates[4,])/avahi_pointestimates[2,]), linetype = "solid", linewidth = 1)+
   geom_vline(xintercept=((avahi_summary[3,2]$mean-avahi_summary[4,2]$mean)/avahi_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
   geom_vline(xintercept=((avahi_summary[3,3]$median-avahi_summary[4,3]$median)/avahi_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
    labs(title = expression(italic("A. laniger")))+
@@ -554,7 +624,7 @@ cheiro_plot <- ggplot(data = cheiro_predictions, aes(pfl2020))+
   geom_density(fill = "violet", color = "violet")+
   theme_classic()+
   ylab("Density")+
-  geom_vline(xintercept=((cheiro_pointestimates[2]-cheiro_pointestimates[4])/cheiro_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((cheiro_pointestimates[2,]-cheiro_pointestimates[4,])/cheiro_pointestimates[2,]), linetype = "solid", linewidth = 1)+
   geom_vline(xintercept=((cheiro_summary[3,2]$mean-cheiro_summary[4,2]$mean)/cheiro_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
   geom_vline(xintercept=((cheiro_summary[3,3]$median-cheiro_summary[4,3]$median)/cheiro_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
    labs(title = expression(italic("C. crossleyi")))+
@@ -564,7 +634,7 @@ hapa_plot <- ggplot(data = hapa_predictions, aes(pfl2020))+
   geom_density(fill = "violet", color = "violet")+
   theme_classic()+
   ylab("Density")+
-  geom_vline(xintercept=((hapa_pointestimates[2]-hapa_pointestimates[4])/hapa_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((hapa_pointestimates[2,]-hapa_pointestimates[4,])/hapa_pointestimates[2,]), linetype = "solid", linewidth = 1)+
   geom_vline(xintercept=((hapa_summary[3,2]$mean-hapa_summary[4,2]$mean)/hapa_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
   geom_vline(xintercept=((hapa_summary[3,3]$median-hapa_summary[4,3]$median)/hapa_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
    labs(title = expression(italic("H. occidentalis")))+
@@ -574,7 +644,7 @@ lepi_plot <- ggplot(data = lepi_predictions, aes(pfl2020))+
   geom_density(fill = "violet", color = "violet")+
   theme_classic()+
   ylab("Density")+
-  geom_vline(xintercept=((lepi_pointestimates[2]-lepi_pointestimates[4])/lepi_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((lepi_pointestimates[2,]-lepi_pointestimates[4,])/lepi_pointestimates[2,]), linetype = "solid", linewidth = 1)+
   geom_vline(xintercept=((lepi_summary[3,2]$mean-lepi_summary[4,2]$mean)/lepi_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
   geom_vline(xintercept=((lepi_summary[3,3]$median-lepi_summary[4,3]$median)/lepi_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
    labs(title = expression(italic("L. seali")))+
@@ -584,7 +654,7 @@ micro_plot <- ggplot(data = micro_predictions, aes(pfl2020))+
   geom_density(fill = "violet", color = "violet")+
   theme_classic()+
   ylab("Density")+
-  geom_vline(xintercept=((micro_pointestimates[2]-micro_pointestimates[4])/micro_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((micro_pointestimates[2,]-micro_pointestimates[4,])/micro_pointestimates[2,]), linetype = "solid", linewidth = 1)+
   geom_vline(xintercept=((micro_summary[3,2]$mean-micro_summary[4,2]$mean)/micro_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
   geom_vline(xintercept=((micro_summary[3,3]$median-micro_summary[4,3]$median)/micro_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
    labs(title = expression(italic("M. lehilahytsara")))+
@@ -594,7 +664,7 @@ prop_plot <- ggplot(data = prop_predictions, aes(pfl2020))+
   geom_density(fill = "violet", color = "violet")+
   theme_classic()+
   ylab("Density")+
-  geom_vline(xintercept=((prop_pointestimates[2]-prop_pointestimates[4])/prop_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((prop_pointestimates[2,]-prop_pointestimates[4,])/prop_pointestimates[2,]), linetype = "solid", linewidth = 1)+
   geom_vline(xintercept=((prop_summary[3,2]$mean-prop_summary[4,2]$mean)/prop_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
   geom_vline(xintercept=((prop_summary[3,3]$median-prop_summary[4,3]$median)/prop_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
    labs(title = expression(italic("P. candidus")))+
@@ -604,13 +674,13 @@ rubri_plot <- ggplot(data = rubri_predictions, aes(pfl2020))+
   geom_density(fill = "violet", color = "violet")+
   theme_classic()+
   ylab("Density")+
-  geom_vline(xintercept=((rubri_pointestimates[2]-rubri_pointestimates[4])/rubri_pointestimates[2]), linetype = "solid", linewidth = 1)+
+  geom_vline(xintercept=((rubri_pointestimates[2,]-rubri_pointestimates[4,])/rubri_pointestimates[2,]), linetype = "solid", linewidth = 1)+
   geom_vline(xintercept=((rubri_summary[3,2]$mean-rubri_summary[4,2]$mean)/rubri_summary[3,2]$mean), linetype = "dashed", linewidth = 1)+
   geom_vline(xintercept=((rubri_summary[3,3]$median-rubri_summary[4,3]$median)/rubri_summary[3,3]$median), linetype = "dotted", linewidth = 1)+
    labs(title = expression(italic("E. rubriventer")))+
   xlab("Predicted Direct Impact")
 
-ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
+pop_distribution_pa_pfl <-ggarrange(allo_plot,cheiro_plot,micro_plot, lepi_plot,avahi_plot,  prop_plot,  albi_plot, rubri_plot, hapa_plot, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"))
 
 
 ```
@@ -683,11 +753,21 @@ plot_hapa <- ggplot() +
 
 plot_density_predict <- ggarrange(plot_allo,plot_cheiro,plot_micro,plot_lepi,plot_avahi, plot_prop,  plot_albi, plot_rubri, plot_hapa,  common.legend = FALSE, labels = c("a", "b", "c", "d", "e", "f", "g", "h", "i"),nrow=3,ncol=3)
 
+ggsave(
+  filename = "plot_density_predict.png",
+  plot = plot_density_predict,
+  width = 13,   
+  height = 8,
+  units = "in",
+  dpi = 600,        
+  device = "png"   
+)
+
 ```
 
 ```{r Variable Importance Figure}
 
-importance <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/variable_importance.csv")
+importance <- read.csv("~/Documents/GitHub/COMATSA_Submission/variable_importance.csv")
 
 importance$Variable[importance$Variable=="ForestLossProp"] <- "Forest Loss Prop."
 
@@ -776,5 +856,234 @@ albi_predictions %>% dplyr::select(pfl2020)%>% summarise(mean = mean(pfl2020), m
                                upper = quantile(pfl2020, 0.975),
                                min = min(pfl2020), 
                                max = max(pfl2020))
+```
+
+```{r}
+
+library(terra)
+library(sf)
+library(ggplot2)
+library(viridis)
+
+DEM    <- rast("~/Downloads/SpatialFiles/ASTGTMV003_S15E049_dem.tif")
+buffer <- read_sf("~/Documents/covariate_tif/comatsa_buffer_sites.shp")
+bound  <- read_sf("~/Documents/covariate_tif/comatsa_sud_boundary.shp")
+FH <- rast("~/Documents/GitHub/COMATSA_GitHub2/Data/covariate_tif/Forest_height_2019_SAFR.tif")
+TRI <- rast("~/Documents/GitHub/COMATSA_GitHub2/Data/covariate_tif/TRI_Nov2023.tif")
+FLP_prop <- rast("~/Documents/GitHub/COMATSA_Submission/Data/FLP_prop.tif")
+F2050 <- rast("~/Downloads/fcc_2050_AFR_aea.tif")
+F2020 <- rast("~/Downloads/forest_2020.tif")
+roads <- read_sf("~/Downloads/madagascar_roads_version4/madagascar_roads_version4.shp")|>
+  st_transform(crs(bound))
+points <- read.csv("~/Downloads/comatsa_points.csv") %>% drop_na(Lat)
+
+buffer <- st_transform(buffer, crs(DEM))
+bound  <- st_transform(bound,  crs(DEM))
+F2020 <- terra::project(F2020, DEM) 
+F2050 <- terra::project(F2050, DEM)
+points_sf <- st_as_sf(
+  points,
+  coords = c("Long", "Lat"),
+  crs = 4326   # lat/long
+) |>
+  st_transform(st_crs(bound))
+
+buf_v <- vect(buffer)           
+DEM_m <- crop(DEM, buf_v) |> mask(buf_v)
+FH_m <- crop(FH, buf_v) |> mask(buf_v)
+TRI_m <- crop(TRI, buf_v) |> mask(buf_v)
+FLP_prop <- crop(FLP_prop, buf_v) |> mask(buf_v)
+F2050 <- crop(F2050, buf_v) |> mask(buf_v)
+F2020 <- crop(F2020, buf_v) |> mask(buf_v)
+roads <- st_intersection(roads, buffer)
+points_sf <- st_intersection(points_sf, buffer)
+
+dem_df <- as.data.frame(DEM_m, xy = TRUE, na.rm = TRUE)
+names(dem_df)[3] <- "elev"
+
+fh_df <- as.data.frame(FH_m, xy = TRUE, na.rm = TRUE)
+names(fh_df)[3] <- "canopy_height"
+
+tri_df <- as.data.frame(TRI_m, xy = TRUE, na.rm = TRUE)
+names(tri_df)[3] <- "ruggedness"
+
+flp_prop <- as.data.frame(FLP_prop, xy = TRUE, na.rm = TRUE)
+names(flp_prop)[3] <- "flp"
+
+f2020_df <- as.data.frame(F2020, xy = TRUE, na.rm = FALSE)
+names(f2020_df)[3] <- "forest2020"
+f2020_df$forest2020[is.na(f2020_df$forest2020)] <- 0
+
+f2050_df <- as.data.frame(F2050, xy = TRUE, na.rm = FALSE)
+names(f2050_df)[3] <- "forest2050"
+f2050_df$forest2050[is.na(f2050_df$forest2050)] <- 0
+
+
+DEM_plot <- ggplot() +
+  geom_raster(data = dem_df, aes(x = x, y = y, fill = elev)) +
+  geom_sf(data = bound, fill = NA, color = "black", linewidth = 1.5) +
+  coord_sf(expand = FALSE) +
+  scale_fill_viridis_c(option = "magma", name = "Elevation (m)", direction = -1) +
+  theme_void() +
+  theme(
+    legend.position = "right",
+    axis.title = element_blank()
+  )
+
+
+Canopy_Height_plot <- ggplot() +
+  geom_raster(data = fh_df, aes(x = x, y = y, fill = canopy_height)) +
+  geom_sf(data = bound, fill = NA, color = "black", linewidth = 1.5) +
+  coord_sf(expand = FALSE) +
+  scale_fill_viridis_c(option = "magma", name = "Canopy\nHeight (m)", direction = -1) +
+  theme_void() +
+  theme(
+    legend.position = "right",
+    axis.title = element_blank()
+  )
+
+Ruggedness_plot <- ggplot() +
+  geom_raster(data = tri_df, aes(x = x, y = y, fill = ruggedness)) +
+  geom_sf(data = bound, fill = NA, color = "black", linewidth = 1.5) +
+  coord_sf(expand = FALSE) +
+  scale_fill_viridis_c(option = "magma", name = "Ruggedness", direction = -1) +
+  theme_void() +
+  theme(
+    legend.position = "right",
+    axis.title = element_blank()
+  )
+
+FLP_plot <- ggplot() +
+  geom_raster(data = flp_prop, aes(x = x, y = y, fill = flp)) +
+  geom_sf(data = bound, fill = NA, color = "black", linewidth = 1.5) +
+  coord_sf(expand = FALSE) +
+  scale_fill_viridis_c(
+    option = "magma",
+    direction = -1,
+    limits = c(0, 0.1),
+    oob = scales::squish,
+    name = "Forest Loss\n(Proportion of\nBuffer Around Pixel)"
+  ) +
+  theme_void() +
+  theme(
+    legend.position = "right",
+    axis.title = element_blank()
+  )
+
+forest_long <- left_join(f2020_df,f2050_df, by = c("x", "y"))
+
+
+forest_long$forest2020[is.na(forest_long$forest2020)] <- 0
+forest_long$forest2050[is.na(forest_long$forest2050)] <- 0
+
+Forest_overlay_plot <- ggplot() +
+  geom_raster(
+    data = subset(forest_long, forest2020 > 0),
+    aes(x = x, y = y),
+    fill = "darkorange",
+    alpha = 0.75
+  ) +
+  geom_raster(
+    data = subset(forest_long, forest2050 > 0),
+    aes(x = x, y = y),
+    fill = "seagreen",
+    alpha = 0.75
+  ) +
+  geom_sf(data = bound, fill = NA, color = "black", linewidth = 1.5) +
+  coord_sf(expand = FALSE) +
+  theme_void() +
+  theme(
+    legend.position = "none",
+    axis.title = element_blank()
+  )+
+  geom_sf(
+    data = roads,
+    color = "brown",
+    linewidth = 2
+  ) +
+  geom_sf(
+    data = points_sf,
+    shape = 21,
+    size = 3.5,
+    fill = "yellow",
+    color = "black",
+    stroke = 0.6
+  )
+
+
+
+forest_legend_df <- rbind(
+  data.frame(
+    x = forest_long$x,
+    y = forest_long$y,
+    class = "Forest 2020",
+    keep = forest_long$forest2020 > 0
+  ),
+  data.frame(
+    x = forest_long$x,
+    y = forest_long$y,
+    class = "Forest 2050",
+    keep = forest_long$forest2050 > 0
+  )
+)
+forest_legend_df <- subset(forest_legend_df, keep)
+forest_legend_df$class <- factor(forest_legend_df$class, levels = c("Forest 2020","Forest 2050"))
+
+
+Forest_overlay_plot <- ggplot() +
+  geom_raster(
+    data = forest_legend_df,
+    aes(x = x, y = y, fill = class),
+    alpha = 0.75
+  ) +
+  scale_fill_manual(
+    values = c("Forest 2020" = "darkorange",
+               "Forest 2050" = "seagreen"),
+    name = NULL
+  ) +
+  geom_sf(
+    data = roads,
+    aes(color = "Main Roads"),
+    linewidth = 2
+  ) +
+  scale_color_manual(
+    values = c("Main Roads" = "brown"),
+    name = NULL
+  ) +
+  geom_sf(
+    data = points_sf,
+    aes(shape = "Sites"),
+    size = 3.5,
+    color = "black",
+    stroke = 0.6,
+    fill = "yellow"
+  ) +
+  scale_shape_manual(
+    values = c("Sites" = 21),
+    name = NULL
+  ) +
+  geom_sf(data = bound, fill = NA, color = "black", linewidth = 1.5) +
+  coord_sf(expand = FALSE) +
+  theme_void() +
+  theme(
+    legend.position = "right",
+    legend.title = element_blank()
+  )
+
+Forest_overlay_plot
+
+maps_figure <- ggarrange(Ruggedness_plot, FLP_plot, DEM_plot, Canopy_Height_plot, Forest_overlay_plot, importance_fig, labels = c("a", "b", "c", "d", "e", "f"), ncol = 2, nrow = 3)
+
+ggsave(
+  filename = "maps_figure.png",
+  plot = maps_figure,
+  width = 10,   
+  height = 10,
+  units = "in",
+  dpi = 600,        
+  device = "png"   
+)
+
+
 ```
 

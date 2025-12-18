@@ -8,17 +8,18 @@ output: html_document
 
 
 ```{r}
+
 library(tidyverse);library(MuMIn);library(rsq);library(lme4);library(lmerTest);library(ggpubr)
 
-albi_density <- read.csv("~/COMATSA_Submission/Data/albi_dat.csv")
-allo_density <- read.csv("~/COMATSA_Submission/Data/allocebus_dat.csv")
-avahi_density <- read.csv("~/COMATSA_Submission/Data/avahi_dat.csv")
-cheiro_density <- read.csv("~/COMATSA_Submission/Data/cheirogaleus_dat.csv")
-lepi_density <- read.csv("~/COMATSA_Submission/Data/lepilemur_dat.csv")
-rubri_density <- read.csv("~/COMATSA_Submission/Data/rubriventer_dat.csv")
-prop_density <- read.csv("~/COMATSA_Submission/Data/prop_dat.csv")
-micro_density <- read.csv("~/COMATSA_Submission/Data/microcebus_dat.csv")
-hapa_density <- read.csv("~/COMATSA_Submission/Data/hapa_dat.csv")
+albi_density <- read.csv("~/Documents/GitHub/COMATSA_Submission/Data/albi_dat.csv")
+allo_density <- read.csv("~/Documents/GitHub/COMATSA_Submission/Data/allocebus_dat.csv")
+avahi_density <- read.csv("~/Documents/GitHub/COMATSA_Submission/Data/avahi_dat.csv")
+cheiro_density <- read.csv("~/Documents/GitHub/COMATSA_Submission/Data/cheirogaleus_dat.csv")
+lepi_density <- read.csv("~/Documents/GitHub/COMATSA_Submission/Data/lepilemur_dat.csv")
+rubri_density <- read.csv("~/Documents/GitHub/COMATSA_Submission/Data/rubriventer_dat.csv")
+prop_density <- read.csv("~/Documents/GitHub/COMATSA_Submission/Data/prop_dat.csv")
+micro_density <- read.csv("~/Documents/GitHub/COMATSA_Submission/Data/microcebus_dat.csv")
+hapa_density <- read.csv("~/Documents/GitHub/COMATSA_Submission/Data/hapa_dat.csv")
 
 
 albi_density$Species <- "Eulemur_albifrons"
@@ -34,7 +35,7 @@ hapa_density$Species <- "Hapalemur_occidentalis"
 
 lemur_densities <- rbind(albi_density, allo_density, avahi_density, cheiro_density, lepi_density, rubri_density, prop_density, micro_density, hapa_density) %>% rename(SiteTransect = Site_Transect)
 
-habitat <- read.csv("~/COMATSA_Submission/Data/habitat_covs.csv")
+habitat <- read.csv("~/Documents/GitHub/COMATSA_Submission/Data/habitat_covs.csv")
 
 densities_habitat <- left_join(lemur_densities, habitat, by=c("SiteTransect", "Species"))
 
@@ -77,7 +78,10 @@ density_heatmap <- ggplot(data= lemur_densities2, aes(x=Species, y=SiteTransect,
   guides(fill=guide_legend(title=  expression(atop("Pop. Density", "(Ind./" * km^2 * ")"))))+
   geom_vline(xintercept = 5.5, linetype = "dashed", size = 1.5)
 
-lemur_densities3 <- lemur_densities2 %>% filter(Species =="E. albifrons"|Species =="E. rubriventer"|Species =="H. occidentalis"|Species =="P. candidus") %>% pivot_wider(names_from = Species, values_from = Density_km2)
+lemur_densities3 <- lemur_densities2 %>% dplyr::select(SiteTransect, Density_km2, Species)%>% mutate(Density_km2 = round(Density_km2,0)) %>%
+  pivot_wider(names_from = Species, values_from = Density_km2) 
+
+write.csv(lemur_densities3, "lemur_densities_transect.csv")
 
 mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="C. crossleyi"]))
 mean(na.omit(lemur_densities2$Density_km2[lemur_densities2$Species=="M. lehilahytsara"]))
@@ -141,7 +145,6 @@ shapiro.test(sqrt(densities_habitat_lepi$Density_km2))
 
 ```
 
-
 ```{r Load packages and data}
 #install.packages("rgdal", repos="http://R-Forge.R-project.org")
 require(raster)
@@ -189,7 +192,7 @@ bound <- st_transform(bound ,crs = 4326)
 
 ```
 
-```{r Creat Forest Loss DFs for Each Lemur Species}
+```{r Create Forest Loss DFs for Each Lemur Species}
 
 focal_weights_allo <- focalMat(FL, 180.2, type = "circle")
 focal_weights_allo[focal_weights_allo > 0] <- 1  
@@ -348,7 +351,6 @@ FP <- projectRaster(FP,DEM,method = "ngb")
 F2050 <- projectRaster(F2050,DEM,  method = "ngb")
 FPred <- projectRaster(FPred,DEM,  method = "ngb")
 ```
-
 
 ```{r covariate buffer extractions}
 ############ prop covariate buffer extractions
@@ -534,6 +536,7 @@ stacked_habitat$FLP_lepi <- stacked_habitat$Band_1.13 / stacked_habitat$Band_1.1
 stacked_habitat$FLP_rubri <- stacked_habitat$Band_1.15 / stacked_habitat$Band_1.16
 stacked_habitat$FLP_avahi <- stacked_habitat$Band_1.17 / stacked_habitat$Band_1.18
 
+
 values(stacked_habitat$FLP_prop2)[values(stacked_habitat$FLP_prop2)>1] <-1
 values(stacked_habitat$FLP_prop)[values(stacked_habitat$FLP_prop)>1] <-1
 values(stacked_habitat$FLP_albi)[values(stacked_habitat$FLP_albi)>1] <-1
@@ -547,8 +550,9 @@ values(stacked_habitat$FLP_avahi)[values(stacked_habitat$FLP_avahi)>1] <-1
 
 stacked_habitat$Layer_1[stacked_habitat$Layer_1<0] <- 0
 
+
 #Clamping
-habitat2 <- read.csv("D:/GitHub/COMATSA_GitHub2/Data/habitat_covs.csv")
+habitat2 <- read.csv("~/Documents/GitHub/COMATSA_GitHub2/Data/habitat_covs.csv")
 
 values(stacked_habitat$Band.1.1)[values(stacked_habitat$Band.1.1)<min(habitat2$Elevation)]<- min(habitat2$Elevation)
 
@@ -709,9 +713,16 @@ values(stacked_habitat$DEM_rubri)[values(stacked_habitat$DEM_rubri)<min(habitat2
 
 values(stacked_habitat$DEM_rubri)[values(stacked_habitat$DEM_rubri)>max(habitat2$Elevation[habitat2$Species=="Eulemur_rubriventer"])]<- max(habitat2$Elevation[habitat2$Species=="Eulemur_rubriventer"])
 
+
+writeRaster(
+  stacked_habitat$FLP_prop,
+  filename  = "~/Documents/GitHub/COMATSA_Submission/Data/FLP_prop.tif",
+  format    = "GTiff",
+  overwrite = TRUE
+)
+
+
 ```
-
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -741,7 +752,7 @@ prop_Elevation_sd <- sd(densities_habitat_prop$Elevation)
 prop_full <- lmer(data = densities_habitat_prop , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
 prop_scale <- scale_mod(prop_full)
 
-prop_dredge <- dredge(prop_scale, extra = "R^2")
+prop_dredge <- dredge(prop_scale)
 prop_model_avg <- model.avg(prop_dredge, fit = TRUE)
 summary_prop_model_avg <- summary(prop_model_avg)
 summary_prop_model_avg
@@ -807,8 +818,8 @@ coef_Elev_prop<-  rnorm(1000, mean=-0.18010  , sd=0.23312)
 coefs_prop_test <- data.frame(Intercept=coef_Intercept_prop,ForestLossProp=coef_FLP_prop, CanopyHeight=coef_CH_prop, Ruggedness = coef_Rug_prop, Elevation=coef_Elev_prop)
 
 #Loop Time!
-prop_predictions <- matrix(NA, nrow = 1000, ncol = 4)
-for (i in 1:1000) {
+prop_predictions <- matrix(NA, nrow = 100, ncol = 4)
+for (i in 1:100) {
  
   coefs <-coefs_prop_test[i,]
 
@@ -858,7 +869,7 @@ write.csv(prop_predictions2 ,"~/COMATSA_Submission/prop_predictions2.csv")
 #prop_predictions2 <- read.csv("prop_predictions2.csv")
 
 ggplot(prop_predictions2, aes(x=PA2020)) + ggtitle("Prop")+ 
-  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=prop_pointestimates[2,] ),
+  geom_histogram(color="black", fill="white")+ geom_vline(aes(xintercept=prop_pointestimates[2] ),
             color="blue", size=1)+
   geom_vline(aes(xintercept=mean(na.omit(prop_predictions2$PA2020)) ),
             color="black", size=1)+
@@ -881,7 +892,7 @@ rubri_Elevation_sd <- sd(densities_habitat_rubri$Elevation)
 rubri_full <- lmer(data = densities_habitat_rubri , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
 rubri_scale <- scale_mod(rubri_full)
 
-rubri_dredge <- dredge(rubri_scale, extra = "R^2")
+rubri_dredge <- dredge(rubri_scale)
 rubri_model_avg <- model.avg(rubri_dredge, fit = TRUE)
 summary_rubri_model_avg <- summary(rubri_model_avg)
 summary_rubri_model_avg
@@ -1028,7 +1039,7 @@ albi_Elevation_sd <- sd(densities_habitat_albi$Elevation)
 albi_full <- lmer(data = densities_habitat_albi , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
 albi_scale <- scale_mod(albi_full)
 
-albi_dredge <- dredge(albi_scale, extra = "R^2")
+albi_dredge <- dredge(albi_scale)
 albi_model_avg <- model.avg(albi_dredge, fit = TRUE)
 summary_albi_model_avg <- summary(albi_model_avg)
 summary_albi_model_avg
@@ -1179,7 +1190,7 @@ cheiro_Elevation_sd <- sd(densities_habitat_cheiro$Elevation)
 cheiro_full <- lmer(data = densities_habitat_cheiro , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
 cheiro_scale <- scale_mod(cheiro_full)
 
-cheiro_dredge <- dredge(cheiro_scale, extra = "R^2")
+cheiro_dredge <- dredge(cheiro_scale)
 cheiro_model_avg <- model.avg(cheiro_dredge, fit = TRUE)
 summary_cheiro_model_avg <- summary(cheiro_model_avg)
 summary_cheiro_model_avg
@@ -1324,10 +1335,10 @@ micro_Ruggedness_sd <- sd(densities_habitat_micro$Ruggedness)
 micro_Elevation_mean <- mean(densities_habitat_micro$Elevation)
 micro_Elevation_sd <- sd(densities_habitat_micro$Elevation)
 
-micro_full <- lmer(data = densities_habitat_micro , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
+micro_full <- lmer(data = densities_habitat_micro[!is.na(densities_habitat_micro$Density_km2),] , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
 micro_scale <- scale_mod(micro_full)
 
-micro_dredge <- dredge(micro_scale, extra = "R^2")
+micro_dredge <- dredge(micro_scale)
 micro_model_avg <- model.avg(micro_dredge, fit = TRUE)
 summary_micro_model_avg <- summary(micro_model_avg)
 summary_micro_model_avg
@@ -1475,7 +1486,7 @@ lepi_Elevation_sd <- sd(densities_habitat_lepi$Elevation)
 lepi_full <- lmer(data = densities_habitat_lepi , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
 lepi_scale <- scale_mod(lepi_full)
 
-lepi_dredge <- dredge(lepi_scale, extra = "R^2")
+lepi_dredge <- dredge(lepi_scale)
 lepi_model_avg <- model.avg(lepi_dredge, fit = TRUE)
 summary_lepi_model_avg <- summary(lepi_model_avg)
 summary_lepi_model_avg
@@ -1623,7 +1634,7 @@ avahi_Elevation_sd <- sd(densities_habitat_avahi$Elevation)
 avahi_full <- lmer(data = densities_habitat_avahi , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
 avahi_scale <- scale_mod(avahi_full)
 
-avahi_dredge <- dredge(avahi_scale, extra = "R^2")
+avahi_dredge <- dredge(avahi_scale)
 avahi_model_avg <- model.avg(avahi_dredge, fit = TRUE)
 summary_avahi_model_avg <- summary(avahi_model_avg)
 summary_avahi_model_avg
@@ -1771,7 +1782,7 @@ hapa_Elevation_sd <- sd(densities_habitat_hapa$Elevation)
 hapa_full <- lmer(data = densities_habitat_hapa , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
 hapa_scale <- scale_mod(hapa_full)
 
-hapa_dredge <- dredge(hapa_scale, extra = "R^2")
+hapa_dredge <- dredge(hapa_scale)
 hapa_model_avg <- model.avg(hapa_dredge, fit = TRUE)
 summary_hapa_model_avg <- summary(hapa_model_avg)
 summary_hapa_model_avg
@@ -1916,7 +1927,7 @@ allo_Elevation_sd <- sd(densities_habitat_allo$Elevation)
 allo_full <- lmer(data = densities_habitat_allo , sqrt(Density_km2) ~ Elevation + CanopyHeight + Ruggedness +ForestLossProp+ (1|Site),na.action = "na.fail")
 allo_scale <- scale_mod(allo_full)
 
-allo_dredge <- dredge(allo_scale, extra = "R^2")
+allo_dredge <- dredge(allo_scale)
 allo_model_avg <- model.avg(allo_dredge, fit = TRUE)
 summary_allo_model_avg <- summary(allo_model_avg)
 summary_allo_model_avg
@@ -2109,6 +2120,52 @@ writeRaster(lepi_map_2020,'lepi_pred.tif')
 writeRaster(micro_map_2020,'micro_pred.tif') 
 writeRaster(prop_map_2020,'prop_pred.tif') 
 writeRaster(rubri_map_2020,'rubri_pred.tif') 
+
+
+summary_allo_coef <- data.frame(summary_allo_model_avg$coefmat.full)
+summary_avahi_coef <-data.frame(summary_avahi_model_avg$coefmat.full)
+summary_albi_coef <-data.frame(summary_albi_model_avg$coefmat.full)
+summary_cheiro_coef <-data.frame(summary_cheiro_model_avg$coefmat.full)
+summary_hapa_coef <-data.frame(summary_hapa_model_avg$coefmat.full)
+summary_lepi_coef <-data.frame(summary_lepi_model_avg$coefmat.full)
+summary_micro_coef <-data.frame(summary_micro_model_avg$coefmat.full)
+summary_rubri_coef <-data.frame(summary_rubri_model_avg$coefmat.full)
+summary_prop_coef <-data.frame(summary_prop_model_avg$coefmat.full)
+
+summary_allo_coef$Species <- "A. trichotis"
+summary_avahi_coef$Species <- "A. laniger"
+summary_albi_coef$Species <- "E. albifrons"
+summary_cheiro_coef$Species <- "C. crossleyi"
+summary_hapa_coef$Species <- "H. occidentalis"
+summary_lepi_coef$Species <- "L. seali"
+summary_micro_coef$Species <- "M. lehilahytsara"
+summary_rubri_coef$Species <- "E. rubriventer"
+summary_prop_coef$Species <- "P. candidus"
+
+summary_allo_coef$Variable <- rownames(summary_allo_coef)
+summary_avahi_coef$Variable <- rownames(summary_avahi_coef)
+summary_albi_coef$Variable <- rownames(summary_albi_coef)
+summary_cheiro_coef$Variable <- rownames(summary_cheiro_coef)
+summary_hapa_coef$Variable <- rownames(summary_hapa_coef)
+summary_lepi_coef$Variable <- rownames(summary_lepi_coef)
+summary_micro_coef$Variable <- rownames(summary_micro_coef)
+summary_rubri_coef$Variable <- rownames(summary_rubri_coef)
+summary_prop_coef$Variable <- rownames(summary_prop_coef)
+
+summary_coef_total <- rbind(summary_allo_coef, summary_avahi_coef, summary_cheiro_coef, summary_albi_coef, summary_rubri_coef, summary_hapa_coef, summary_lepi_coef, summary_micro_coef, summary_prop_coef) 
+
+colnames(summary_coef_total) <- c("Estimate", "Std. Error", "Adjusted SE", "Z values", "P-value", "Species", "Variable")
+
+summary_coef_total <- summary_coef_total[,c(6,7,1,2,5)]
+summary_coef_total$Estimate <- round(summary_coef_total$Estimate,3)
+summary_coef_total$`Std. Error`<- round(summary_coef_total$`Std. Error`,3)
+summary_coef_total$`P-value`<- round(summary_coef_total$`P-value`,3)
+
+write.csv(summary_coef_total, "summary_coef_total_comatsa.csv")
+
+
+importance_df <- data.frame(rbind(importance_allo_model_avg, importance_avahi_model_avg, importance_cheiro_model_avg, importance_albi_model_avg, importance_rubri_model_avg, importance_hapa_model_avg, importance_lepi_model_avg, importance_micro_model_avg, importance_prop_model_avg))
+
 
 ```
  

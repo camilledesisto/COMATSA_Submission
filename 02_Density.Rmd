@@ -269,7 +269,9 @@ allocebus_strip_width <- allocebus_truncation_dist
 site_transects <- survey_all %>% group_by(Site_Transect) %>% summarise()
 
 allocebus_df_old <- survey_all %>% filter(Nom_sientifique=="Allocebus_trichotis" & Type=="Nocturnal" & Date < ymd("20220601") & (Dis <1.56*allocebus_truncation_dist | is.na(Dis)))
+
 allocebus_df_new <- survey_all %>% filter(Nom_sientifique=="Allocebus_trichotis" & Type=="Nocturnal"  & Date >= ymd("20220601") & (distance <= allocebus_truncation_dist  | is.na(distance)) )
+
 allocebus_dat1 <- rbind(allocebus_df_new, allocebus_df_old)
 
 allocebus_dat <- allocebus_dat1  %>% group_by(Site_Transect)%>% summarise(Nind = sum(as.numeric(N_ad)))
@@ -380,7 +382,7 @@ microcebus_df3$size <- as.numeric(microcebus_df3$N_total)
 microcebus_df3$Effort <- microcebus_df3$Effort.distance
 
 #Detection function models
-microcebus_truncation_dist <- 22
+microcebus_truncation_dist <- 15
 
 model1_microcebus <- ds(microcebus_df3, key="hn", adjustment=NULL, truncation = microcebus_truncation_dist)
 model2_microcebus <- ds(microcebus_df3, key="hn", adjustment="cos", truncation = microcebus_truncation_dist)
@@ -403,18 +405,18 @@ gof_ds(model5_microcebus)
 gof_ds(model6_microcebus)
 gof_ds(model7_microcebus)#significant
 gof_ds(model8_microcebus)
-gof_ds(model9_microcebus)#significant
+gof_ds(model9_microcebus)
 gof_ds(model10_microcebus)
-gof_ds(model11_microcebus)#significant
+gof_ds(model11_microcebus)
 
 #Compare AIC calues
-AIC(model1_microcebus, model2_microcebus, model3_microcebus, model4_microcebus, model5_microcebus, model6_microcebus, model8_microcebus, model10_microcebus)
+AIC(model1_microcebus, model2_microcebus, model3_microcebus, model4_microcebus, model5_microcebus, model6_microcebus, model8_microcebus, model9_microcebus)
 
 #Plot the best-fitting model that also looks the most reasonable 
-plot(model4_microcebus, nc=6)
+plot(model8_microcebus, nc=6)
 
 #Get detection probability
-microcebus_detection_prob <- predict(model4_microcebus)$fitted[[1]]
+microcebus_detection_prob <- predict(model8_microcebus)$fitted[[1]]
 
 #Calculate strp width (2 * maximum distance, of the truncated distance data)
 microcebus_strip_width <- microcebus_truncation_dist
@@ -439,6 +441,8 @@ microcebus_dat <- microcebus_dat %>% dplyr::select(-Site, -Transect)
 microcebus_dat <- left_join(microcebus_dat, transect_lengths, by =c("Site_Transect"))
 microcebus_dat$Density <- (microcebus_dat$Nind/microcebus_detection_prob)/(microcebus_truncation_dist*microcebus_dat$Length*microcebus_dat$NRep*2)
 microcebus_dat$Density_km2 <- microcebus_dat$Density*1000000
+
+mean(na.omit(microcebus_dat$Density_km2))
 
 
 write.csv(microcebus_dat,"~/Documents/GitHub/COMATSA_Submission/Data/microcebus_dat.csv")
@@ -862,7 +866,7 @@ AIC(model1_hapalemur, model2_hapalemur, model3_hapalemur, model4_hapalemur,model
 plot(model8_hapalemur)
 
 #Get detection probability
-hapalemur_detection_prob <- predict(model8_hapalemur)$fitted[[1]] #odd that this is 1? Assumed perfect detection but they are so cryptic! 
+hapalemur_detection_prob <- predict(model8_hapalemur)$fitted[[1]] 
 
 #Get Strip Width
 hapalemur_strip_width <- hapalemur_truncation_dist
