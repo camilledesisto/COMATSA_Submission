@@ -1399,11 +1399,11 @@ micro_map_2050 <- micro_2050
 
 
 ##loop not loop
-coef_Intercept_micro<-  rnorm(1000, mean=8.79287 , sd=1.03886)
-coef_FLP_micro<-  rnorm(1000, mean=0.12078 , sd=0.52105  )
-coef_CH_micro<-  rnorm(1000, mean=-0.49127, sd=0.77816)
-coef_Rug_micro<-  rnorm(1000, mean=-0.02609, sd=0.54759 )
-coef_Elev_micro<-  rnorm(1000, mean=0.58976  , sd=0.85575)
+coef_Intercept_micro<-  rnorm(1000, mean=7.5009 , sd=1.1451)
+coef_FLP_micro<-  rnorm(1000, mean=-0.4432 , sd=0.7576  )
+coef_CH_micro<-  rnorm(1000, mean=-0.4691, sd=0.8056)
+coef_Rug_micro<-  rnorm(1000, mean=-0.1498, sd=0.6319 )
+coef_Elev_micro<-  rnorm(1000, mean=0.1614  , sd=0.5836)
 
 
 coefs_micro_test <- data.frame(Intercept=coef_Intercept_micro,ForestLossProp=coef_FLP_micro, CanopyHeight=coef_CH_micro, Ruggedness = coef_Rug_micro, Elevation=coef_Elev_micro)
