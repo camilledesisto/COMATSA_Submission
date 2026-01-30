@@ -161,6 +161,19 @@ density_summary <- lemur_densities2 %>%
 
 density_summary
 
+
+
+ggsave(
+  filename = "density_heatmap2.eps",
+  plot = density_heatmap,
+  width = 5,   
+  height = 8,
+  units = "in",
+  dpi = 600,        
+  device = "eps"
+)
+
+
 ```
 
 ```{r Lemur species dataframes}
